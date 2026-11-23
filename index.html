@@ -38,6 +38,59 @@
       <p class="form-message" id="date-error" role="alert" hidden></p>
     </section>
 
+    <section class="panel import-panel" aria-labelledby="import-title">
+      <div class="section-heading compact-heading">
+        <div>
+          <p class="step-label">Импорт</p>
+          <h2 id="import-title">Загрузка предыдущего месяца</h2>
+        </div>
+        <p class="unit-note">Первый лист файла .xlsx</p>
+      </div>
+
+      <div class="import-controls">
+        <label class="field-group" for="xlsx-file">
+          <span>Файл Excel</span>
+          <input id="xlsx-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+          <small class="field-help">Столбцы: Дата, Час, Объём (кВт*ч)</small>
+        </label>
+        <button class="primary-button" id="check-xlsx" type="button">Проверить файл</button>
+      </div>
+
+      <div class="import-result" id="import-result" aria-live="polite" hidden>
+        <p class="import-status" id="import-status"></p>
+        <dl class="import-summary">
+          <div>
+            <dt>Файл</dt>
+            <dd id="import-file-name">—</dd>
+          </div>
+          <div>
+            <dt>Месяц</dt>
+            <dd id="import-month">—</dd>
+          </div>
+          <div>
+            <dt>Корректных строк</dt>
+            <dd id="import-row-count">0</dd>
+          </div>
+          <div>
+            <dt>Дат</dt>
+            <dd id="import-date-count">0</dd>
+          </div>
+          <div>
+            <dt>Общий объём</dt>
+            <dd><span id="import-total">0</span> кВт*ч</dd>
+          </div>
+        </dl>
+        <div class="import-errors" id="import-errors" hidden>
+          <h3>Что исправить</h3>
+          <ul id="import-error-list"></ul>
+        </div>
+        <div class="import-actions">
+          <button class="secondary-button" id="load-xlsx" type="button" disabled>Загрузить объёмы</button>
+          <p class="field-help" id="import-action-help"></p>
+        </div>
+      </div>
+    </section>
+
     <section class="panel consumption-panel" aria-labelledby="consumption-title">
       <div class="section-heading compact-heading">
         <div>

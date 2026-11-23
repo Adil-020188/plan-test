@@ -4,6 +4,8 @@
   const STORAGE_KEY = "energyPlannerComparisonV1";
   const HOUR_COUNT = 24;
   const DISPLAY_VOLUME_DECIMALS = 6;
+  const MAX_XLSX_SIZE = 5 * 1024 * 1024;
+  const MAX_IMPORT_ROWS = 31 * HOUR_COUNT;
 
   const elements = {
     previousDate: document.querySelector("#previous-date"),
@@ -18,6 +20,19 @@
     currentTotal: document.querySelector("#current-total"),
     differenceTotal: document.querySelector("#difference-total"),
     percentTotal: document.querySelector("#percent-total"),
+    xlsxFile: document.querySelector("#xlsx-file"),
+    checkXlsx: document.querySelector("#check-xlsx"),
+    loadXlsx: document.querySelector("#load-xlsx"),
+    importResult: document.querySelector("#import-result"),
+    importStatus: document.querySelector("#import-status"),
+    importFileName: document.querySelector("#import-file-name"),
+    importMonth: document.querySelector("#import-month"),
+    importRowCount: document.querySelector("#import-row-count"),
+    importDateCount: document.querySelector("#import-date-count"),
+    importTotal: document.querySelector("#import-total"),
+    importErrors: document.querySelector("#import-errors"),
+    importErrorList: document.querySelector("#import-error-list"),
+    importActionHelp: document.querySelector("#import-action-help"),
     tariffInputs: Array.from(document.querySelectorAll(".tariff-input"))
   };
 
@@ -504,6 +519,513 @@
     saveState();
   }
 
+  function readUint32(view, offset) {
+    return view.getUint32(offset, true);
+  }
+
+  function findZipDirectory(view) {
+    const minimumOffset = Math.max(0, view.byteLength - 65557);
+
+    for (let offset = view.byteLength - 22; offset >= minimumOffset; offset -= 1) {
+      if (readUint32(view, offset) === 0x06054b50) {
+        return {
+          entryCount: view.getUint16(offset + 10, true),
+          directoryOffset: readUint32(view, offset + 16)
+        };
+      }
+    }
+
+    throw new Error("Файл не является корректной книгой Excel");
+  }
+
+  function indexZipEntries(buffer) {
+    const view = new DataView(buffer);
+    const directory = findZipDirectory(view);
+    const decoder = new TextDecoder("utf-8");
+    const entries = {};
+    let offset = directory.directoryOffset;
+
+    for (let index = 0; index < directory.entryCount; index += 1) {
+      if (readUint32(view, offset) !== 0x02014b50) {
+        throw new Error("Не удалось прочитать содержимое файла Excel");
+      }
+
+      const nameLength = view.getUint16(offset + 28, true);
+      const extraLength = view.getUint16(offset + 30, true);
+      const commentLength = view.getUint16(offset + 32, true);
+      const nameBytes = new Uint8Array(buffer, offset + 46, nameLength);
+      const name = decoder.decode(nameBytes).replace(/\\/g, "/");
+
+      entries[name] = {
+        method: view.getUint16(offset + 10, true),
+        compressedSize: readUint32(view, offset + 20),
+        uncompressedSize: readUint32(view, offset + 24),
+        localOffset: readUint32(view, offset + 42)
+      };
+
+      offset += 46 + nameLength + extraLength + commentLength;
+    }
+
+    return { buffer: buffer, view: view, entries: entries };
+  }
+
+  async function extractZipEntry(zip, name) {
+    const entry = zip.entries[name];
+    if (!entry) {
+      return null;
+    }
+
+    if (readUint32(zip.view, entry.localOffset) !== 0x04034b50) {
+      throw new Error("Повреждена структура файла Excel");
+    }
+
+    const nameLength = zip.view.getUint16(entry.localOffset + 26, true);
+    const extraLength = zip.view.getUint16(entry.localOffset + 28, true);
+    const start = entry.localOffset + 30 + nameLength + extraLength;
+    const compressed = new Uint8Array(zip.buffer, start, entry.compressedSize);
+
+    if (entry.method === 0) {
+      return compressed.slice().buffer;
+    }
+
+    if (entry.method !== 8 || typeof DecompressionStream !== "function") {
+      throw new Error("Этот браузер не может распаковать выбранный файл .xlsx");
+    }
+
+    let stream;
+    try {
+      stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    } catch (error) {
+      throw new Error("Этот браузер не может распаковать выбранный файл .xlsx");
+    }
+
+    let output;
+    try {
+      output = await new Response(stream).arrayBuffer();
+    } catch (error) {
+      throw new Error("Не удалось распаковать выбранный файл .xlsx");
+    }
+    if (entry.uncompressedSize && output.byteLength !== entry.uncompressedSize) {
+      throw new Error("Не удалось полностью прочитать файл Excel");
+    }
+    return output;
+  }
+
+  async function extractZipText(zip, name) {
+    const data = await extractZipEntry(zip, name);
+    return data === null ? null : new TextDecoder("utf-8").decode(data);
+  }
+
+  function parseXml(text) {
+    const documentNode = new DOMParser().parseFromString(text, "application/xml");
+    if (documentNode.getElementsByTagName("parsererror").length) {
+      throw new Error("Не удалось прочитать таблицу в файле Excel");
+    }
+    return documentNode;
+  }
+
+  function normalizeZipPath(base, target) {
+    const source = target.charAt(0) === "/" ? target.slice(1) : base + "/" + target;
+    const parts = [];
+    source.split("/").forEach(function (part) {
+      if (!part || part === ".") {
+        return;
+      }
+      if (part === "..") {
+        parts.pop();
+      } else {
+        parts.push(part);
+      }
+    });
+    return parts.join("/");
+  }
+
+  function readSharedStrings(documentNode) {
+    return Array.from(documentNode.getElementsByTagName("si")).map(function (item) {
+      return Array.from(item.getElementsByTagName("t")).map(function (textNode) {
+        return textNode.textContent || "";
+      }).join("");
+    });
+  }
+
+  function columnIndex(reference) {
+    const letters = String(reference || "").match(/^[A-Z]+/i);
+    if (!letters) {
+      return -1;
+    }
+
+    return letters[0].toUpperCase().split("").reduce(function (total, letter) {
+      return total * 26 + letter.charCodeAt(0) - 64;
+    }, 0) - 1;
+  }
+
+  function cellText(cell) {
+    return Array.from(cell.getElementsByTagName("t")).map(function (node) {
+      return node.textContent || "";
+    }).join("");
+  }
+
+  function readCellValue(cell, sharedStrings) {
+    const type = cell.getAttribute("t") || "n";
+    if (type === "inlineStr") {
+      return cellText(cell);
+    }
+
+    const valueNode = cell.getElementsByTagName("v")[0];
+    const raw = valueNode ? valueNode.textContent || "" : "";
+
+    if (type === "s") {
+      const index = Number(raw);
+      return Number.isInteger(index) && sharedStrings[index] !== undefined ? sharedStrings[index] : "";
+    }
+
+    if (type === "n" && raw !== "") {
+      const number = Number(raw);
+      return Number.isFinite(number) ? number : raw;
+    }
+
+    return raw;
+  }
+
+  function readSheetRows(documentNode, sharedStrings) {
+    return Array.from(documentNode.getElementsByTagName("row")).map(function (row, rowIndex) {
+      const rowNumber = Number(row.getAttribute("r")) || rowIndex + 1;
+      const cells = [];
+
+      Array.from(row.getElementsByTagName("c")).forEach(function (cell) {
+        const index = columnIndex(cell.getAttribute("r"));
+        if (index >= 0) {
+          cells[index] = readCellValue(cell, sharedStrings);
+        }
+      });
+
+      return { rowNumber: rowNumber, cells: cells };
+    });
+  }
+
+  async function readFirstXlsxSheet(file) {
+    const zip = indexZipEntries(await file.arrayBuffer());
+    const workbookText = await extractZipText(zip, "xl/workbook.xml");
+    const relationsText = await extractZipText(zip, "xl/_rels/workbook.xml.rels");
+
+    if (!workbookText || !relationsText) {
+      throw new Error("В файле не найдена книга Excel");
+    }
+
+    const workbook = parseXml(workbookText);
+    const firstSheet = workbook.getElementsByTagName("sheet")[0];
+    if (!firstSheet) {
+      throw new Error("В файле нет листов");
+    }
+
+    const relationId = firstSheet.getAttribute("r:id") || firstSheet.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id");
+    const relations = parseXml(relationsText);
+    const relation = Array.from(relations.getElementsByTagName("Relationship")).find(function (item) {
+      return item.getAttribute("Id") === relationId;
+    });
+
+    if (!relation) {
+      throw new Error("Не удалось найти первый лист Excel");
+    }
+
+    const sheetPath = normalizeZipPath("xl", relation.getAttribute("Target") || "");
+    const sheetText = await extractZipText(zip, sheetPath);
+    if (!sheetText) {
+      throw new Error("Не удалось прочитать первый лист Excel");
+    }
+
+    const sharedText = await extractZipText(zip, "xl/sharedStrings.xml");
+    const sharedStrings = sharedText ? readSharedStrings(parseXml(sharedText)) : [];
+    const workbookProperties = workbook.getElementsByTagName("workbookPr")[0];
+    const uses1904Dates = Boolean(workbookProperties && /^(?:1|true)$/i.test(workbookProperties.getAttribute("date1904") || ""));
+
+    return {
+      rows: readSheetRows(parseXml(sheetText), sharedStrings),
+      uses1904Dates: uses1904Dates
+    };
+  }
+
+  function normalizeHeader(value) {
+    return String(value === undefined ? "" : value)
+      .trim()
+      .toLowerCase()
+      .replace(/ё/g, "е")
+      .replace(/[^a-zа-я0-9]/g, "");
+  }
+
+  function findImportColumns(headerCells) {
+    const columns = { date: -1, hour: -1, volume: -1 };
+
+    headerCells.forEach(function (value, index) {
+      const header = normalizeHeader(value);
+      if (header === "дата") {
+        columns.date = index;
+      } else if (header === "час") {
+        columns.hour = index;
+      } else if (header === "объемквтч") {
+        columns.volume = index;
+      }
+    });
+
+    return columns;
+  }
+
+  function excelSerialToDateString(value, uses1904Dates) {
+    if (!Number.isFinite(value) || value < 0 || Math.abs(value - Math.round(value)) > 0.0000001) {
+      return null;
+    }
+
+    const epoch = uses1904Dates ? Date.UTC(1904, 0, 1) : Date.UTC(1899, 11, 30);
+    const date = new Date(epoch + Math.round(value) * 86400000);
+    const year = String(date.getUTCFullYear()).padStart(4, "0");
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    return year + "-" + month + "-" + day;
+  }
+
+  function parseImportDate(value, uses1904Dates) {
+    if (typeof value === "number") {
+      return excelSerialToDateString(value, uses1904Dates);
+    }
+
+    const text = String(value === undefined ? "" : value).trim();
+    const localMatch = text.match(/^(\d{2})[.](\d{2})[.](\d{4})$/);
+    if (localMatch) {
+      const candidate = localMatch[3] + "-" + localMatch[2] + "-" + localMatch[1];
+      return isDateString(candidate) ? candidate : null;
+    }
+
+    const isoMatch = text.match(/^(\d{4}-\d{2}-\d{2})(?:T.*)?$/);
+    return isoMatch && isDateString(isoMatch[1]) ? isoMatch[1] : null;
+  }
+
+  function parseImportHour(value) {
+    if (typeof value === "number") {
+      return Number.isInteger(value) && value >= 0 && value <= 23 ? value : null;
+    }
+
+    const text = String(value === undefined ? "" : value).trim();
+    if (/^\d{1,2}$/.test(text)) {
+      const hour = Number(text);
+      return hour >= 0 && hour <= 23 ? hour : null;
+    }
+
+    const interval = text.match(/^(\d{1,2}):00\s*[-–—]\s*(\d{1,2}):00$/);
+    if (!interval) {
+      return null;
+    }
+
+    const start = Number(interval[1]);
+    const end = Number(interval[2]);
+    return start >= 0 && start <= 23 && end === (start + 1) % 24 ? start : null;
+  }
+
+  function parseImportVolume(value) {
+    if (typeof value === "number") {
+      return Number.isFinite(value) && value >= 0 ? value : null;
+    }
+
+    const text = String(value === undefined ? "" : value).trim().replace(",", ".");
+    if (!/^(?:\d+(?:[.]\d*)?|[.]\d+)$/.test(text)) {
+      return null;
+    }
+
+    const number = Number(text);
+    return Number.isFinite(number) && number >= 0 ? number : null;
+  }
+
+  function isBlankCell(value) {
+    return value === undefined || value === null || String(value).trim() === "";
+  }
+
+  function monthLabel(monthKey) {
+    if (!/^\d{4}-\d{2}$/.test(monthKey || "")) {
+      return "—";
+    }
+    const parts = monthKey.split("-").map(Number);
+    return new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" })
+      .format(new Date(parts[0], parts[1] - 1, 1));
+  }
+
+  function expectedImportMonth() {
+    const current = parseLocalDate(elements.currentDate.value);
+    if (!current) {
+      return null;
+    }
+    const previous = new Date(current.getFullYear(), current.getMonth() - 1, 1);
+    return String(previous.getFullYear()).padStart(4, "0") + "-" + String(previous.getMonth() + 1).padStart(2, "0");
+  }
+
+  function validateImportSheet(sheet) {
+    const errors = [];
+    const records = [];
+    const dates = new Set();
+    const months = new Set();
+    const pairs = new Set();
+    const headerRow = sheet.rows.find(function (row) { return row.rowNumber === 1; });
+
+    if (!headerRow) {
+      errors.push("Строка 1: добавьте заголовки Дата, Час, Объём (кВт*ч)");
+      return { errors: errors, records: records, dates: dates, month: null, total: 0 };
+    }
+
+    const columns = findImportColumns(headerRow.cells);
+    if (columns.date < 0) {
+      errors.push("Строка 1: не найден столбец Дата");
+    }
+    if (columns.hour < 0) {
+      errors.push("Строка 1: не найден столбец Час");
+    }
+    if (columns.volume < 0) {
+      errors.push("Строка 1: не найден столбец Объём (кВт*ч)");
+    }
+    if (errors.length) {
+      return { errors: errors, records: records, dates: dates, month: null, total: 0 };
+    }
+
+    const dataRows = sheet.rows.filter(function (row) {
+      return row.rowNumber > 1 && [columns.date, columns.hour, columns.volume].some(function (index) {
+        return !isBlankCell(row.cells[index]);
+      });
+    });
+
+    if (!dataRows.length) {
+      errors.push("Файл: на первом листе нет строк с данными");
+    }
+    if (dataRows.length > MAX_IMPORT_ROWS) {
+      errors.push("Файл: строк больше " + MAX_IMPORT_ROWS);
+    }
+
+    dataRows.slice(0, MAX_IMPORT_ROWS).forEach(function (row) {
+      const dateValue = row.cells[columns.date];
+      const hourValue = row.cells[columns.hour];
+      const volumeValue = row.cells[columns.volume];
+      const date = parseImportDate(dateValue, sheet.uses1904Dates);
+      const hour = parseImportHour(hourValue);
+      const volume = parseImportVolume(volumeValue);
+      let rowIsValid = true;
+
+      if (!date) {
+        errors.push("Строка " + row.rowNumber + ": " + (isBlankCell(dateValue) ? "дата не указана" : "неверная дата"));
+        rowIsValid = false;
+      }
+      if (hour === null) {
+        errors.push("Строка " + row.rowNumber + ": " + (isBlankCell(hourValue) ? "час не указан" : "час должен быть от 0 до 23"));
+        rowIsValid = false;
+      }
+      if (volume === null) {
+        const numeric = Number(String(volumeValue).trim().replace(",", "."));
+        const message = Number.isFinite(numeric) && numeric < 0
+          ? "объём не может быть отрицательным"
+          : (isBlankCell(volumeValue) ? "объём не указан" : "неверный объём");
+        errors.push("Строка " + row.rowNumber + ": " + message);
+        rowIsValid = false;
+      }
+
+      if (!rowIsValid) {
+        return;
+      }
+
+      const pair = date + "|" + hour;
+      if (pairs.has(pair)) {
+        errors.push("Строка " + row.rowNumber + ": дата и час повторяются");
+        return;
+      }
+
+      pairs.add(pair);
+      dates.add(date);
+      months.add(date.slice(0, 7));
+      records.push({ date: date, hour: hour, volume: volume, rowNumber: row.rowNumber });
+    });
+
+    let month = months.size === 1 ? Array.from(months)[0] : null;
+    if (months.size > 1) {
+      errors.push("Файл: должны быть данные одного месяца");
+    }
+
+    const expectedMonth = expectedImportMonth();
+    if (month && expectedMonth && month !== expectedMonth) {
+      errors.push("Файл: загрузите данные за " + monthLabel(expectedMonth));
+    }
+
+    return {
+      errors: errors,
+      records: records,
+      dates: dates,
+      month: month,
+      total: records.reduce(function (sum, record) { return sum + record.volume; }, 0)
+    };
+  }
+
+  function renderImportResult(fileName, result) {
+    const hasErrors = result.errors.length > 0;
+    elements.importResult.hidden = false;
+    elements.importStatus.textContent = hasErrors
+      ? "Файл не прошёл проверку"
+      : "Файл проверен, данные не загружены";
+    elements.importStatus.classList.toggle("has-errors", hasErrors);
+    elements.importFileName.textContent = fileName || "—";
+    elements.importMonth.textContent = result.month ? monthLabel(result.month) : "—";
+    elements.importRowCount.textContent = String(result.records.length);
+    elements.importDateCount.textContent = String(result.dates.size);
+    elements.importTotal.textContent = formatNumber(result.total, DISPLAY_VOLUME_DECIMALS);
+    elements.importErrors.hidden = !hasErrors;
+    elements.importErrorList.replaceChildren();
+
+    result.errors.forEach(function (message) {
+      const item = document.createElement("li");
+      item.textContent = message;
+      elements.importErrorList.appendChild(item);
+    });
+
+    elements.loadXlsx.disabled = true;
+    elements.importActionHelp.textContent = hasErrors
+      ? "Исправьте ошибки и проверьте файл снова."
+      : "Загрузка объёмов будет добавлена на шаге 2.";
+  }
+
+  function emptyImportResult(message) {
+    return {
+      errors: [message],
+      records: [],
+      dates: new Set(),
+      month: null,
+      total: 0
+    };
+  }
+
+  async function handleXlsxCheck() {
+    const file = elements.xlsxFile.files[0];
+    if (!file) {
+      renderImportResult("—", emptyImportResult("Файл: выберите файл .xlsx"));
+      return;
+    }
+
+    if (!/[.]xlsx$/i.test(file.name)) {
+      renderImportResult(file.name, emptyImportResult("Файл: сохраните файл в формате .xlsx"));
+      return;
+    }
+
+    if (file.size > MAX_XLSX_SIZE) {
+      renderImportResult(file.name, emptyImportResult("Файл: размер больше 5 МБ"));
+      return;
+    }
+
+    elements.checkXlsx.disabled = true;
+    elements.checkXlsx.textContent = "Проверяем…";
+
+    try {
+      const sheet = await readFirstXlsxSheet(file);
+      renderImportResult(file.name, validateImportSheet(sheet));
+    } catch (error) {
+      const message = error && error.message ? error.message : "Не удалось прочитать файл Excel";
+      renderImportResult(file.name, emptyImportResult("Файл: " + message));
+    } finally {
+      elements.checkXlsx.disabled = false;
+      elements.checkXlsx.textContent = "Проверить файл";
+    }
+  }
+
   function initialize() {
     createRows();
 
@@ -515,6 +1037,10 @@
 
     elements.previousDate.addEventListener("change", handleDateChange);
     elements.currentDate.addEventListener("change", handleDateChange);
+    elements.xlsxFile.addEventListener("change", function () {
+      elements.importResult.hidden = true;
+    });
+    elements.checkXlsx.addEventListener("click", handleXlsxCheck);
     elements.tariffInputs.forEach(function (input) {
       input.addEventListener("focus", handleTariffFocus);
       input.addEventListener("input", handleTariffInput);

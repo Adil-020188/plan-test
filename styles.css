@@ -33,6 +33,41 @@ input {
   font: inherit;
 }
 
+button {
+  min-height: 48px;
+  padding: 10px 18px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(23, 107, 91, 0.2);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  color: #7b8792;
+  background: #e7ebee;
+}
+
+.primary-button {
+  color: #fff;
+  background: var(--accent);
+}
+
+.primary-button:hover:not(:disabled) {
+  background: var(--accent-dark);
+}
+
+.secondary-button {
+  color: var(--accent-dark);
+  border-color: #a9c9c1;
+  background: var(--accent-soft);
+}
+
 .page-shell {
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
@@ -176,6 +211,98 @@ input[aria-invalid="true"] {
   background: var(--danger-soft);
   font-size: 0.9rem;
   font-weight: 650;
+}
+
+.import-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 16px;
+}
+
+.field-help {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 550;
+}
+
+.import-result {
+  margin-top: 20px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f9fbfb;
+}
+
+.import-status {
+  margin-bottom: 16px;
+  color: var(--accent-dark);
+  font-weight: 800;
+}
+
+.import-status.has-errors {
+  color: var(--danger);
+}
+
+.import-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.import-summary div {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.import-summary dt {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.import-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.import-errors {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.import-errors h3 {
+  margin: 0 0 8px;
+  font-size: 0.96rem;
+}
+
+.import-errors ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.import-errors li + li {
+  margin-top: 5px;
+}
+
+.import-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.import-actions .field-help {
+  margin: 0;
 }
 
 .unit-note {
@@ -357,9 +484,16 @@ tfoot .hour-column {
   }
 
   .date-grid,
+  .import-controls,
+  .import-summary,
   .tariff-grid,
   .tariff-card {
     grid-template-columns: 1fr;
+  }
+
+  .import-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .date-link {
