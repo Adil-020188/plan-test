@@ -38,6 +38,7 @@
 
   let state = readState();
   let pairIsValid = false;
+  let pendingImport = null;
   const rowControls = [];
 
   function emptyRecord() {
@@ -104,11 +105,13 @@
     return initial;
   }
 
-  function saveState() {
+  function saveState(value) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(value || state));
+      return true;
     } catch (error) {
       // Страница остаётся рабочей, даже если хранилище браузера недоступно.
+      return false;
     }
   }
 
@@ -393,6 +396,8 @@
   }
 
   function handleDateChange() {
+    resetImportCheck();
+
     if (validatePair()) {
       state.selected = {
         previous: elements.previousDate.value,
@@ -847,6 +852,11 @@
       .format(new Date(parts[0], parts[1] - 1, 1));
   }
 
+  function shortMonthLabel(monthKey) {
+    const parts = String(monthKey || "").split("-");
+    return parts.length === 2 ? parts[1] + "." + parts[0] : "—";
+  }
+
   function expectedImportMonth() {
     const current = parseLocalDate(elements.currentDate.value);
     if (!current) {
@@ -959,6 +969,7 @@
 
   function renderImportResult(fileName, result) {
     const hasErrors = result.errors.length > 0;
+    pendingImport = hasErrors ? null : result;
     elements.importResult.hidden = false;
     elements.importStatus.textContent = hasErrors
       ? "Файл не прошёл проверку"
@@ -978,10 +989,16 @@
       elements.importErrorList.appendChild(item);
     });
 
-    elements.loadXlsx.disabled = true;
+    elements.loadXlsx.disabled = hasErrors;
     elements.importActionHelp.textContent = hasErrors
       ? "Исправьте ошибки и проверьте файл снова."
-      : "Загрузка объёмов будет добавлена на шаге 2.";
+      : "Проверьте итог и загрузите объёмы.";
+  }
+
+  function resetImportCheck() {
+    pendingImport = null;
+    elements.loadXlsx.disabled = true;
+    elements.importResult.hidden = true;
   }
 
   function emptyImportResult(message) {
@@ -1026,6 +1043,52 @@
     }
   }
 
+  function handleXlsxLoad() {
+    if (!pendingImport || pendingImport.errors.length || !pendingImport.records.length) {
+      return;
+    }
+
+    const expectedMonth = expectedImportMonth();
+    if (!expectedMonth || pendingImport.month !== expectedMonth) {
+      pendingImport = null;
+      elements.loadXlsx.disabled = true;
+      elements.importStatus.textContent = "Дата текущего месяца изменилась";
+      elements.importStatus.classList.add("has-errors");
+      elements.importActionHelp.textContent = "Проверьте файл снова для выбранных дат.";
+      return;
+    }
+
+    const result = pendingImport;
+    const nextState = JSON.parse(JSON.stringify(state));
+
+    result.records.forEach(function (record) {
+      if (!nextState.records[record.date]) {
+        nextState.records[record.date] = emptyRecord();
+      } else {
+        nextState.records[record.date] = cleanRecord(nextState.records[record.date]);
+      }
+      nextState.records[record.date].volumes[record.hour] = record.volume;
+    });
+
+    if (!saveState(nextState)) {
+      elements.importStatus.textContent = "Не удалось сохранить объёмы";
+      elements.importStatus.classList.add("has-errors");
+      elements.importActionHelp.textContent = "Проверьте доступ к хранилищу браузера и повторите загрузку.";
+      return;
+    }
+
+    state = nextState;
+    pendingImport = null;
+    elements.loadXlsx.disabled = true;
+    elements.importStatus.textContent = "Загружено: " + result.records.length + " строк за " + shortMonthLabel(result.month);
+    elements.importStatus.classList.remove("has-errors");
+    elements.importActionHelp.textContent = "Объёмы сохранены в браузере.";
+
+    if (result.dates.has(elements.previousDate.value)) {
+      loadVisibleData();
+    }
+  }
+
   function initialize() {
     createRows();
 
@@ -1038,9 +1101,10 @@
     elements.previousDate.addEventListener("change", handleDateChange);
     elements.currentDate.addEventListener("change", handleDateChange);
     elements.xlsxFile.addEventListener("change", function () {
-      elements.importResult.hidden = true;
+      resetImportCheck();
     });
     elements.checkXlsx.addEventListener("click", handleXlsxCheck);
+    elements.loadXlsx.addEventListener("click", handleXlsxLoad);
     elements.tariffInputs.forEach(function (input) {
       input.addEventListener("focus", handleTariffFocus);
       input.addEventListener("input", handleTariffInput);
