@@ -109,49 +109,8 @@
         </label>
       </div>
 
-      <p class="unit-note month-note">Каждый день сравнивается с таким же числом предыдущего месяца.</p>
+      <p class="unit-note month-note">Нажмите на день, чтобы открыть или скрыть 24 почасовых значения.</p>
       <div class="month-day-list" id="month-day-list" aria-live="polite"></div>
-    </section>
-
-    <section class="panel consumption-panel" data-view="analytics" aria-labelledby="consumption-title" hidden>
-      <div class="section-heading compact-heading">
-        <div>
-          <p class="step-label">Выбранные даты</p>
-          <h2 id="consumption-title">Введите объёмы за день</h2>
-        </div>
-        <p class="unit-note">Все объёмы в кВт*ч</p>
-      </div>
-
-      <div class="table-scroll" id="table-scroll" tabindex="0" aria-label="Таблица почасового потребления">
-        <table>
-          <thead>
-            <tr>
-              <th class="hour-column" scope="col">Час</th>
-              <th scope="col">
-                <span>Предыдущий</span>
-                <small id="previous-date-label">—</small>
-              </th>
-              <th scope="col">
-                <span>Текущий</span>
-                <small id="current-date-label">—</small>
-              </th>
-              <th scope="col">Разница</th>
-              <th scope="col">Разница, %</th>
-            </tr>
-          </thead>
-          <tbody id="hourly-rows"></tbody>
-          <tfoot>
-            <tr>
-              <th class="hour-column" scope="row">Итого</th>
-              <td id="previous-total">0</td>
-              <td id="current-total">0</td>
-              <td id="difference-total">0</td>
-              <td id="percent-total">—</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-      <p class="scroll-hint">На телефоне проведите по таблице влево, чтобы увидеть все столбцы.</p>
     </section>
 
     <section class="panel tariff-panel" data-view="main" aria-labelledby="tariffs-title">

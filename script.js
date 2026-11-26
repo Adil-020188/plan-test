@@ -16,15 +16,8 @@
     previousDate: document.querySelector("#previous-date"),
     currentDate: document.querySelector("#current-date"),
     dateError: document.querySelector("#date-error"),
-    previousDateLabel: document.querySelector("#previous-date-label"),
-    currentDateLabel: document.querySelector("#current-date-label"),
     previousTariffDate: document.querySelector("#previous-tariff-date"),
     currentTariffDate: document.querySelector("#current-tariff-date"),
-    hourlyRows: document.querySelector("#hourly-rows"),
-    previousTotal: document.querySelector("#previous-total"),
-    currentTotal: document.querySelector("#current-total"),
-    differenceTotal: document.querySelector("#difference-total"),
-    percentTotal: document.querySelector("#percent-total"),
     xlsxFile: document.querySelector("#xlsx-file"),
     checkXlsx: document.querySelector("#check-xlsx"),
     loadXlsx: document.querySelector("#load-xlsx"),
@@ -44,7 +37,6 @@
   let state = readState();
   let pairIsValid = false;
   let pendingImport = null;
-  const rowControls = [];
 
   function showView(viewName) {
     elements.views.forEach(function (view) {
@@ -57,9 +49,6 @@
       button.setAttribute("aria-pressed", String(isActive));
     });
 
-    if (viewName === "analytics") {
-      renderMonthDays();
-    }
   }
 
   function isMonthString(value) {
@@ -111,19 +100,264 @@
     return { total: total, filled: filled, hasData: filled > 0 };
   }
 
-  function createDayMetric(label, value, difference) {
-    const wrapper = document.createElement("div");
-    const term = document.createElement("dt");
-    const description = document.createElement("dd");
+  function createDayMetric(label, field) {
+    const wrapper = document.createElement("span");
+    const labelElement = document.createElement("span");
+    const valueElement = document.createElement("strong");
 
-    term.textContent = label;
-    description.textContent = value;
-    if (typeof difference === "number") {
-      setDifferenceStyle(description, difference);
-    }
-    wrapper.appendChild(term);
-    wrapper.appendChild(description);
+    wrapper.className = "day-summary-metric";
+    labelElement.className = "day-summary-metric-label";
+    valueElement.className = "day-summary-metric-value";
+    valueElement.dataset.summaryField = field;
+    labelElement.textContent = label;
+    wrapper.appendChild(labelElement);
+    wrapper.appendChild(valueElement);
     return wrapper;
+  }
+
+  function setDayMetric(card, field, value, difference) {
+    const element = card.querySelector('[data-summary-field="' + field + '"]');
+    element.textContent = value;
+    setDifferenceStyle(element, difference);
+  }
+
+  function updateDaySummary(card) {
+    const currentDate = card.dataset.currentDate;
+    const previousDate = card.dataset.previousDate || null;
+    const current = summarizeDate(currentDate);
+    const previous = previousDate ? summarizeDate(previousDate) : { total: 0, filled: 0, hasData: false };
+    const hasDifference = current.hasData || previous.hasData;
+    const difference = hasDifference ? current.total - previous.total : null;
+    const percent = hasDifference && previous.hasData && previous.total > 0
+      ? (difference / previous.total) * 100
+      : null;
+
+    setDayMetric(card, "previous-total", previous.hasData ? formatNumber(previous.total, DISPLAY_VOLUME_DECIMALS) : "—", null);
+    setDayMetric(card, "current-total", current.hasData ? formatNumber(current.total, DISPLAY_VOLUME_DECIMALS) : "—", null);
+    setDayMetric(card, "difference", difference === null ? "—" : formatNumber(difference, DISPLAY_VOLUME_DECIMALS), difference);
+    setDayMetric(card, "percent", percent === null ? "—" : formatNumber(percent, 2) + "%", percent);
+    setDayMetric(card, "filled", current.filled + " из " + HOUR_COUNT, null);
+  }
+
+  function getStoredVolume(date, hour) {
+    if (!date || !state.records[date] || !Array.isArray(state.records[date].volumes)) {
+      return null;
+    }
+
+    const value = state.records[date].volumes[hour];
+    return isValidVolume(value) ? value : null;
+  }
+
+  function createMonthVolumeCell(recordDate, currentDate, previousDate, hour, time, period) {
+    const cell = document.createElement("td");
+
+    if (!recordDate) {
+      cell.className = "unavailable-volume";
+      cell.textContent = "—";
+      return cell;
+    }
+
+    const input = document.createElement("input");
+    const stored = getStoredVolume(recordDate, hour);
+    const periodLabel = period === "previous" ? "предыдущего" : "текущего";
+    input.className = "volume-input";
+    input.type = "text";
+    input.inputMode = "decimal";
+    input.autocomplete = "off";
+    input.placeholder = "0";
+    input.value = stored === null ? "" : String(stored).replace(".", ",");
+    input.dataset.recordDate = recordDate;
+    input.dataset.currentDate = currentDate;
+    input.dataset.previousDate = previousDate || "";
+    input.dataset.hour = String(hour);
+    input.setAttribute("aria-label", "Объём " + periodLabel + " месяца за " + time + ", кВт*ч");
+    input.addEventListener("input", handleMonthVolumeInput);
+    input.addEventListener("blur", handleMonthVolumeBlur);
+    cell.appendChild(input);
+    return cell;
+  }
+
+  function createHourlyEditor(currentDate, previousDate) {
+    const scroll = document.createElement("div");
+    const table = document.createElement("table");
+    const head = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    const body = document.createElement("tbody");
+    const headings = [
+      { title: "Час", date: null, className: "hour-column" },
+      { title: "Предыдущий", date: previousDate },
+      { title: "Текущий", date: currentDate },
+      { title: "Разница", date: null },
+      { title: "Разница, %", date: null }
+    ];
+
+    scroll.className = "table-scroll day-table-scroll";
+    scroll.tabIndex = 0;
+    scroll.setAttribute("aria-label", "Почасовые объёмы за " + formatDate(currentDate));
+
+    headings.forEach(function (heading) {
+      const cell = document.createElement("th");
+      cell.scope = "col";
+      if (heading.className) {
+        cell.className = heading.className;
+      }
+      const title = document.createElement("span");
+      title.textContent = heading.title;
+      cell.appendChild(title);
+      if (heading.title === "Предыдущий" || heading.title === "Текущий") {
+        const small = document.createElement("small");
+        small.textContent = heading.date ? formatDate(heading.date) : "—";
+        cell.appendChild(small);
+      }
+      headRow.appendChild(cell);
+    });
+
+    for (let hour = 0; hour < HOUR_COUNT; hour += 1) {
+      const row = document.createElement("tr");
+      const nextHour = (hour + 1) % HOUR_COUNT;
+      const time = String(hour).padStart(2, "0") + ":00–" + String(nextHour).padStart(2, "0") + ":00";
+      const hourCell = document.createElement("th");
+      const differenceCell = document.createElement("td");
+      const percentCell = document.createElement("td");
+
+      row.dataset.hour = String(hour);
+      hourCell.className = "hour-column";
+      hourCell.scope = "row";
+      hourCell.textContent = time;
+      differenceCell.className = "calculated-cell";
+      differenceCell.dataset.hourlyField = "difference";
+      percentCell.className = "calculated-cell";
+      percentCell.dataset.hourlyField = "percent";
+
+      row.appendChild(hourCell);
+      row.appendChild(createMonthVolumeCell(previousDate, currentDate, previousDate, hour, time, "previous"));
+      row.appendChild(createMonthVolumeCell(currentDate, currentDate, previousDate, hour, time, "current"));
+      row.appendChild(differenceCell);
+      row.appendChild(percentCell);
+      body.appendChild(row);
+      updateHourlyRow(row, currentDate, previousDate, hour);
+    }
+
+    head.appendChild(headRow);
+    table.appendChild(head);
+    table.appendChild(body);
+    scroll.appendChild(table);
+    return scroll;
+  }
+
+  function updateHourlyRow(row, currentDate, previousDate, hour) {
+    const previous = getStoredVolume(previousDate, hour);
+    const current = getStoredVolume(currentDate, hour);
+    const differenceCell = row.querySelector('[data-hourly-field="difference"]');
+    const percentCell = row.querySelector('[data-hourly-field="percent"]');
+
+    if (previous === null && current === null) {
+      differenceCell.textContent = "—";
+      percentCell.textContent = "—";
+      setDifferenceStyle(differenceCell, null);
+      setDifferenceStyle(percentCell, null);
+      return;
+    }
+
+    const difference = (current === null ? 0 : current) - (previous === null ? 0 : previous);
+    const percent = previous !== null && previous > 0 ? (difference / previous) * 100 : null;
+    differenceCell.textContent = formatNumber(difference, DISPLAY_VOLUME_DECIMALS);
+    percentCell.textContent = percent === null ? "—" : formatNumber(percent, 2) + "%";
+    setDifferenceStyle(differenceCell, difference);
+    setDifferenceStyle(percentCell, percent === null ? null : percent);
+  }
+
+  function handleMonthVolumeInput(event) {
+    const input = event.currentTarget;
+    const trimmed = input.value.trim();
+    const parsed = trimmed === "" ? null : parseVolume(trimmed);
+    const isInvalid = trimmed !== "" && parsed === null;
+    input.setAttribute("aria-invalid", String(isInvalid));
+
+    if (isInvalid) {
+      return;
+    }
+
+    const hour = Number(input.dataset.hour);
+    const record = getRecord(input.dataset.recordDate);
+    record.volumes[hour] = parsed;
+    saveState();
+
+    const card = input.closest(".day-card");
+    updateDaySummary(card);
+    updateHourlyRow(input.closest("tr"), input.dataset.currentDate, input.dataset.previousDate || null, hour);
+  }
+
+  function handleMonthVolumeBlur(event) {
+    const input = event.currentTarget;
+    const trimmed = input.value.trim();
+    const parsed = trimmed === "" ? null : parseVolume(trimmed);
+
+    if (parsed !== null) {
+      input.value = String(parsed).replace(".", ",");
+    } else if (trimmed !== "") {
+      const stored = getStoredVolume(input.dataset.recordDate, Number(input.dataset.hour));
+      input.value = stored === null ? "" : String(stored).replace(".", ",");
+    }
+    input.removeAttribute("aria-invalid");
+  }
+
+  function createDayCard(currentDate, previousDate) {
+    const card = document.createElement("article");
+    const toggle = document.createElement("button");
+    const icon = document.createElement("span");
+    const title = document.createElement("span");
+    const dateLabel = document.createElement("span");
+    const comparisonLabel = document.createElement("span");
+    const values = document.createElement("span");
+    const details = document.createElement("div");
+    const detailsId = "day-details-" + currentDate;
+
+    card.className = "day-card";
+    card.dataset.currentDate = currentDate;
+    card.dataset.previousDate = previousDate || "";
+    toggle.className = "day-summary";
+    toggle.type = "button";
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.setAttribute("aria-controls", detailsId);
+    icon.className = "day-summary-toggle-icon";
+    icon.textContent = "›";
+    icon.setAttribute("aria-hidden", "true");
+    title.className = "day-summary-title";
+    dateLabel.className = "day-summary-date";
+    dateLabel.textContent = formatDate(currentDate);
+    comparisonLabel.className = "day-summary-comparison";
+    comparisonLabel.textContent = "Сравнение: " + (previousDate ? formatDate(previousDate) : "—");
+    values.className = "day-summary-values";
+    values.appendChild(createDayMetric("Предыдущий", "previous-total"));
+    values.appendChild(createDayMetric("Текущий", "current-total"));
+    values.appendChild(createDayMetric("Разница", "difference"));
+    values.appendChild(createDayMetric("Изменение", "percent"));
+    values.appendChild(createDayMetric("Заполнено", "filled"));
+    details.className = "day-details";
+    details.id = detailsId;
+    details.hidden = true;
+
+    title.appendChild(dateLabel);
+    title.appendChild(comparisonLabel);
+    toggle.appendChild(icon);
+    toggle.appendChild(title);
+    toggle.appendChild(values);
+    card.appendChild(toggle);
+    card.appendChild(details);
+    updateDaySummary(card);
+
+    toggle.addEventListener("click", function () {
+      const willOpen = toggle.getAttribute("aria-expanded") !== "true";
+      if (willOpen && !details.hasChildNodes()) {
+        details.appendChild(createHourlyEditor(currentDate, previousDate));
+      }
+      toggle.setAttribute("aria-expanded", String(willOpen));
+      details.hidden = !willOpen;
+      card.classList.toggle("is-open", willOpen);
+    });
+
+    return card;
   }
 
   function renderMonthDays() {
@@ -141,41 +375,8 @@
 
     for (let day = 1; day <= currentDayCount; day += 1) {
       const currentDate = dateForMonthDay(currentMonth, day);
-      const hasPreviousDate = day <= previousDayCount;
-      const previousDate = hasPreviousDate ? dateForMonthDay(previousMonth, day) : null;
-      const current = summarizeDate(currentDate);
-      const previous = previousDate ? summarizeDate(previousDate) : { total: 0, filled: 0, hasData: false };
-      const hasDifference = current.hasData || previous.hasData;
-      const difference = hasDifference ? current.total - previous.total : null;
-      const percent = hasDifference && previous.hasData && previous.total > 0
-        ? (difference / previous.total) * 100
-        : null;
-
-      const item = document.createElement("article");
-      item.className = "day-summary";
-
-      const title = document.createElement("div");
-      title.className = "day-summary-title";
-      const dateLabel = document.createElement("span");
-      dateLabel.className = "day-summary-date";
-      dateLabel.textContent = formatDate(currentDate);
-      const comparisonLabel = document.createElement("span");
-      comparisonLabel.className = "day-summary-comparison";
-      comparisonLabel.textContent = "Сравнение: " + (previousDate ? formatDate(previousDate) : "—");
-      title.appendChild(dateLabel);
-      title.appendChild(comparisonLabel);
-
-      const values = document.createElement("dl");
-      values.className = "day-summary-values";
-      values.appendChild(createDayMetric("Предыдущий", previous.hasData ? formatNumber(previous.total, DISPLAY_VOLUME_DECIMALS) : "—"));
-      values.appendChild(createDayMetric("Текущий", current.hasData ? formatNumber(current.total, DISPLAY_VOLUME_DECIMALS) : "—"));
-      values.appendChild(createDayMetric("Разница", difference === null ? "—" : formatNumber(difference, DISPLAY_VOLUME_DECIMALS), difference));
-      values.appendChild(createDayMetric("Изменение", percent === null ? "—" : formatNumber(percent, 2) + "%", percent));
-      values.appendChild(createDayMetric("Заполнено", current.filled + " из " + HOUR_COUNT));
-
-      item.appendChild(title);
-      item.appendChild(values);
-      fragment.appendChild(item);
+      const previousDate = day <= previousDayCount ? dateForMonthDay(previousMonth, day) : null;
+      fragment.appendChild(createDayCard(currentDate, previousDate));
     }
 
     elements.monthDayList.appendChild(fragment);
@@ -394,70 +595,6 @@
     return period === "previous" ? elements.previousDate.value : elements.currentDate.value;
   }
 
-  function createRows() {
-    const fragment = document.createDocumentFragment();
-
-    for (let hour = 0; hour < HOUR_COUNT; hour += 1) {
-      const row = document.createElement("tr");
-      const nextHour = (hour + 1) % HOUR_COUNT;
-      const time = String(hour).padStart(2, "0") + ":00–" + String(nextHour).padStart(2, "0") + ":00";
-
-      const hourCell = document.createElement("th");
-      hourCell.className = "hour-column";
-      hourCell.scope = "row";
-      hourCell.textContent = time;
-      row.appendChild(hourCell);
-
-      const previous = createVolumeCell("previous", hour, time);
-      const current = createVolumeCell("current", hour, time);
-      const difference = createCalculatedCell("Разница за " + time);
-      const percent = createCalculatedCell("Разница в процентах за " + time);
-
-      row.appendChild(previous.cell);
-      row.appendChild(current.cell);
-      row.appendChild(difference);
-      row.appendChild(percent);
-      fragment.appendChild(row);
-
-      rowControls.push({
-        previous: previous.input,
-        current: current.input,
-        difference: difference,
-        percent: percent
-      });
-    }
-
-    elements.hourlyRows.appendChild(fragment);
-  }
-
-  function createVolumeCell(period, hour, time) {
-    const cell = document.createElement("td");
-    const input = document.createElement("input");
-    const periodLabel = period === "previous" ? "предыдущего" : "текущего";
-
-    input.className = "volume-input";
-    input.type = "text";
-    input.inputMode = "decimal";
-    input.autocomplete = "off";
-    input.placeholder = "0";
-    input.dataset.period = period;
-    input.dataset.hour = String(hour);
-    input.setAttribute("aria-label", "Объём " + periodLabel + " месяца за " + time + ", кВт*ч");
-    input.addEventListener("input", handleVolumeInput);
-    input.addEventListener("blur", handleVolumeBlur);
-    cell.appendChild(input);
-
-    return { cell: cell, input: input };
-  }
-
-  function createCalculatedCell(label) {
-    const cell = document.createElement("td");
-    cell.className = "calculated-cell";
-    cell.textContent = "—";
-    cell.setAttribute("aria-label", label);
-    return cell;
-  }
-
   function setDifferenceStyle(element, value) {
     element.classList.toggle("positive-value", typeof value === "number" && value > 0);
     element.classList.toggle("negative-value", typeof value === "number" && value < 0);
@@ -485,10 +622,6 @@
   }
 
   function setFormDisabled(disabled) {
-    rowControls.forEach(function (row) {
-      row.previous.disabled = disabled;
-      row.current.disabled = disabled;
-    });
     elements.tariffInputs.forEach(function (input) {
       input.disabled = disabled;
     });
@@ -497,8 +630,6 @@
   function updateDateLabels() {
     const previousLabel = formatDate(elements.previousDate.value);
     const currentLabel = formatDate(elements.currentDate.value);
-    elements.previousDateLabel.textContent = previousLabel;
-    elements.currentDateLabel.textContent = currentLabel;
     elements.previousTariffDate.textContent = previousLabel;
     elements.currentTariffDate.textContent = currentLabel;
   }
@@ -508,38 +639,15 @@
     clearTariffErrors();
 
     if (!pairIsValid) {
-      rowControls.forEach(function (row) {
-        row.previous.value = "";
-        row.current.value = "";
-        row.difference.textContent = "—";
-        row.percent.textContent = "—";
-        setDifferenceStyle(row.difference, null);
-        setDifferenceStyle(row.percent, null);
-      });
       elements.tariffInputs.forEach(function (input) { input.value = ""; });
-      renderTotals(0, 0);
       return;
     }
-
-    const previousRecord = getRecord(elements.previousDate.value);
-    const currentRecord = getRecord(elements.currentDate.value);
-
-    rowControls.forEach(function (row, hour) {
-      const previousValue = previousRecord.volumes[hour];
-      const currentValue = currentRecord.volumes[hour];
-      row.previous.value = previousValue === null ? "" : String(previousValue).replace(".", ",");
-      row.current.value = currentValue === null ? "" : String(currentValue).replace(".", ",");
-      row.previous.removeAttribute("aria-invalid");
-      row.current.removeAttribute("aria-invalid");
-    });
 
     elements.tariffInputs.forEach(function (input) {
       const record = getRecord(getDateForPeriod(input.dataset.period));
       input.value = formatMoney(record.tariffs[input.dataset.tariff]);
       input.removeAttribute("aria-invalid");
     });
-
-    calculateAll();
   }
 
   function handleDateChange() {
@@ -556,76 +664,6 @@
     }
 
     loadVisibleData();
-  }
-
-  function handleVolumeInput(event) {
-    const input = event.currentTarget;
-    const parsed = input.value.trim() === "" ? null : parseVolume(input.value);
-    const isInvalid = input.value.trim() !== "" && parsed === null;
-
-    input.setAttribute("aria-invalid", String(isInvalid));
-
-    if (pairIsValid) {
-      const record = getRecord(getDateForPeriod(input.dataset.period));
-      record.volumes[Number(input.dataset.hour)] = parsed;
-      saveState();
-      calculateAll();
-    }
-  }
-
-  function handleVolumeBlur(event) {
-    const input = event.currentTarget;
-    const parsed = parseVolume(input.value);
-    if (parsed !== null) {
-      input.value = String(parsed).replace(".", ",");
-      input.removeAttribute("aria-invalid");
-    }
-  }
-
-  function calculateAll() {
-    let previousTotal = 0;
-    let currentTotal = 0;
-
-    rowControls.forEach(function (row) {
-      const previous = parseVolume(row.previous.value);
-      const current = parseVolume(row.current.value);
-      const previousForTotal = previous === null ? 0 : previous;
-      const currentForTotal = current === null ? 0 : current;
-
-      previousTotal += previousForTotal;
-      currentTotal += currentForTotal;
-
-      if (previous === null && current === null) {
-        row.difference.textContent = "—";
-        row.percent.textContent = "—";
-        setDifferenceStyle(row.difference, null);
-        setDifferenceStyle(row.percent, null);
-        return;
-      }
-
-      const difference = currentForTotal - previousForTotal;
-      row.difference.textContent = formatNumber(difference, DISPLAY_VOLUME_DECIMALS);
-      row.percent.textContent = previous !== null && previous > 0
-        ? formatNumber((difference / previous) * 100, 2) + "%"
-        : "—";
-      setDifferenceStyle(row.difference, difference);
-      setDifferenceStyle(row.percent, previous !== null && previous > 0 ? difference : null);
-    });
-
-    renderTotals(previousTotal, currentTotal);
-    renderMonthDays();
-  }
-
-  function renderTotals(previous, current) {
-    const difference = current - previous;
-    elements.previousTotal.textContent = formatNumber(previous, DISPLAY_VOLUME_DECIMALS);
-    elements.currentTotal.textContent = formatNumber(current, DISPLAY_VOLUME_DECIMALS);
-    elements.differenceTotal.textContent = formatNumber(difference, DISPLAY_VOLUME_DECIMALS);
-    elements.percentTotal.textContent = previous > 0
-      ? formatNumber((difference / previous) * 100, 2) + "%"
-      : "—";
-    setDifferenceStyle(elements.differenceTotal, difference);
-    setDifferenceStyle(elements.percentTotal, previous > 0 ? difference : null);
   }
 
   function clearTariffErrors() {
@@ -1237,8 +1275,6 @@
   }
 
   function initialize() {
-    createRows();
-
     elements.viewButtons.forEach(function (button) {
       button.addEventListener("click", function () {
         showView(button.dataset.viewTarget);
@@ -1275,6 +1311,7 @@
       saveState();
     }
     loadVisibleData();
+    renderMonthDays();
   }
 
   initialize();

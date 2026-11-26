@@ -179,16 +179,41 @@ h2 {
   gap: 10px;
 }
 
-.day-summary {
-  display: grid;
-  grid-template-columns: minmax(180px, 1.4fr) minmax(0, 3fr);
-  align-items: center;
-  gap: 18px;
-  min-height: 72px;
-  padding: 12px 16px;
+.day-card {
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #fbfcfc;
+}
+
+.day-summary {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 24px minmax(180px, 1.4fr) minmax(0, 3fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 0;
+  color: var(--ink);
+  background: transparent;
+  text-align: left;
+}
+
+.day-summary:hover {
+  background: var(--accent-soft);
+}
+
+.day-summary-toggle-icon {
+  color: var(--accent);
+  font-size: 1.5rem;
+  line-height: 1;
+  transition: transform 150ms ease;
+}
+
+.day-card.is-open .day-summary-toggle-icon {
+  transform: rotate(90deg);
 }
 
 .day-summary-title {
@@ -211,25 +236,46 @@ h2 {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
-  margin: 0;
 }
 
-.day-summary-values div {
+.day-summary-metric {
+  display: block;
   min-width: 0;
 }
 
-.day-summary-values dt {
+.day-summary-metric-label {
+  display: block;
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 650;
 }
 
-.day-summary-values dd {
-  margin: 3px 0 0;
+.day-summary-metric-value {
+  display: block;
+  margin-top: 3px;
   overflow-wrap: anywhere;
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
   font-weight: 800;
+}
+
+.day-details {
+  padding: 12px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.day-details[hidden] {
+  display: none;
+}
+
+.day-table-scroll {
+  margin: 0;
+}
+
+.unavailable-volume {
+  color: var(--muted);
+  text-align: center;
 }
 
 .status-badge {
@@ -624,13 +670,18 @@ tfoot .hour-column {
   }
 
   .day-summary {
-    grid-template-columns: 1fr;
+    grid-template-columns: 20px minmax(0, 1fr);
     gap: 12px;
   }
 
   .day-summary-values {
+    grid-column: 2;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px 14px;
+  }
+
+  .day-details {
+    padding: 8px;
   }
 
   .section-nav {
