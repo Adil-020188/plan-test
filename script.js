@@ -11,6 +11,8 @@
   const elements = {
     viewButtons: Array.from(document.querySelectorAll("[data-view-target]")),
     views: Array.from(document.querySelectorAll("[data-view]")),
+    analyticsMonth: document.querySelector("#analytics-month"),
+    monthDayList: document.querySelector("#month-day-list"),
     previousDate: document.querySelector("#previous-date"),
     currentDate: document.querySelector("#current-date"),
     dateError: document.querySelector("#date-error"),
@@ -54,6 +56,129 @@
       button.classList.toggle("is-active", isActive);
       button.setAttribute("aria-pressed", String(isActive));
     });
+
+    if (viewName === "analytics") {
+      renderMonthDays();
+    }
+  }
+
+  function isMonthString(value) {
+    if (!/^\d{4}-\d{2}$/.test(value || "")) {
+      return false;
+    }
+
+    const parts = value.split("-").map(Number);
+    return parts[0] >= 1 && parts[1] >= 1 && parts[1] <= 12;
+  }
+
+  function previousMonthValue(value) {
+    if (!isMonthString(value)) {
+      return null;
+    }
+
+    const parts = value.split("-").map(Number);
+    const date = new Date(parts[0], parts[1] - 2, 1, 12);
+    return String(date.getFullYear()).padStart(4, "0") + "-" + String(date.getMonth() + 1).padStart(2, "0");
+  }
+
+  function daysInMonth(value) {
+    if (!isMonthString(value)) {
+      return 0;
+    }
+
+    const parts = value.split("-").map(Number);
+    return new Date(parts[0], parts[1], 0).getDate();
+  }
+
+  function dateForMonthDay(month, day) {
+    return month + "-" + String(day).padStart(2, "0");
+  }
+
+  function summarizeDate(date) {
+    const record = state.records[date];
+    const volumes = record && Array.isArray(record.volumes) ? record.volumes : [];
+    let total = 0;
+    let filled = 0;
+
+    for (let hour = 0; hour < HOUR_COUNT; hour += 1) {
+      const value = volumes[hour];
+      if (isValidVolume(value)) {
+        total += value;
+        filled += 1;
+      }
+    }
+
+    return { total: total, filled: filled, hasData: filled > 0 };
+  }
+
+  function createDayMetric(label, value, difference) {
+    const wrapper = document.createElement("div");
+    const term = document.createElement("dt");
+    const description = document.createElement("dd");
+
+    term.textContent = label;
+    description.textContent = value;
+    if (typeof difference === "number") {
+      setDifferenceStyle(description, difference);
+    }
+    wrapper.appendChild(term);
+    wrapper.appendChild(description);
+    return wrapper;
+  }
+
+  function renderMonthDays() {
+    const currentMonth = elements.analyticsMonth.value;
+    elements.monthDayList.replaceChildren();
+
+    if (!isMonthString(currentMonth)) {
+      return;
+    }
+
+    const previousMonth = previousMonthValue(currentMonth);
+    const currentDayCount = daysInMonth(currentMonth);
+    const previousDayCount = daysInMonth(previousMonth);
+    const fragment = document.createDocumentFragment();
+
+    for (let day = 1; day <= currentDayCount; day += 1) {
+      const currentDate = dateForMonthDay(currentMonth, day);
+      const hasPreviousDate = day <= previousDayCount;
+      const previousDate = hasPreviousDate ? dateForMonthDay(previousMonth, day) : null;
+      const current = summarizeDate(currentDate);
+      const previous = previousDate ? summarizeDate(previousDate) : { total: 0, filled: 0, hasData: false };
+      const hasDifference = current.hasData || previous.hasData;
+      const difference = hasDifference ? current.total - previous.total : null;
+      const percent = hasDifference && previous.hasData && previous.total > 0
+        ? (difference / previous.total) * 100
+        : null;
+
+      const item = document.createElement("article");
+      item.className = "day-summary";
+
+      const title = document.createElement("div");
+      title.className = "day-summary-title";
+      const dateLabel = document.createElement("span");
+      dateLabel.className = "day-summary-date";
+      dateLabel.textContent = formatDate(currentDate);
+      const comparisonLabel = document.createElement("span");
+      comparisonLabel.className = "day-summary-comparison";
+      comparisonLabel.textContent = "Сравнение: " + (previousDate ? formatDate(previousDate) : "—");
+      title.appendChild(dateLabel);
+      title.appendChild(comparisonLabel);
+
+      const values = document.createElement("dl");
+      values.className = "day-summary-values";
+      values.appendChild(createDayMetric("Предыдущий", previous.hasData ? formatNumber(previous.total, DISPLAY_VOLUME_DECIMALS) : "—"));
+      values.appendChild(createDayMetric("Текущий", current.hasData ? formatNumber(current.total, DISPLAY_VOLUME_DECIMALS) : "—"));
+      values.appendChild(createDayMetric("Разница", difference === null ? "—" : formatNumber(difference, DISPLAY_VOLUME_DECIMALS), difference));
+      values.appendChild(createDayMetric("Изменение", percent === null ? "—" : formatNumber(percent, 2) + "%", percent));
+      values.appendChild(createDayMetric("Заполнено", current.filled + " из " + HOUR_COUNT));
+
+      item.appendChild(title);
+      item.appendChild(values);
+      fragment.appendChild(item);
+    }
+
+    elements.monthDayList.appendChild(fragment);
   }
 
   function emptyRecord() {
@@ -488,6 +613,7 @@
     });
 
     renderTotals(previousTotal, currentTotal);
+    renderMonthDays();
   }
 
   function renderTotals(previous, current) {
@@ -1107,6 +1233,7 @@
     if (result.dates.has(elements.previousDate.value)) {
       loadVisibleData();
     }
+    renderMonthDays();
   }
 
   function initialize() {
@@ -1124,9 +1251,11 @@
       : defaultDates();
     elements.previousDate.value = dates.previous;
     elements.currentDate.value = dates.current;
+    elements.analyticsMonth.value = dates.current.slice(0, 7);
 
     elements.previousDate.addEventListener("change", handleDateChange);
     elements.currentDate.addEventListener("change", handleDateChange);
+    elements.analyticsMonth.addEventListener("change", renderMonthDays);
     elements.xlsxFile.addEventListener("change", function () {
       resetImportCheck();
     });

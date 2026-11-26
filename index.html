@@ -97,11 +97,27 @@
       </div>
     </section>
 
+    <section class="panel month-panel" data-view="analytics" aria-labelledby="month-title" hidden>
+      <div class="section-heading">
+        <div>
+          <p class="step-label">Месяц</p>
+          <h2 id="month-title">Аналитика месяца</h2>
+        </div>
+        <label class="field-group month-picker" for="analytics-month">
+          <span>Текущий месяц</span>
+          <input id="analytics-month" type="month">
+        </label>
+      </div>
+
+      <p class="unit-note month-note">Каждый день сравнивается с таким же числом предыдущего месяца.</p>
+      <div class="month-day-list" id="month-day-list" aria-live="polite"></div>
+    </section>
+
     <section class="panel consumption-panel" data-view="analytics" aria-labelledby="consumption-title" hidden>
       <div class="section-heading compact-heading">
         <div>
-          <p class="step-label">Шаг 2</p>
-          <h2 id="consumption-title">Введите объёмы</h2>
+          <p class="step-label">Выбранные даты</p>
+          <h2 id="consumption-title">Введите объёмы за день</h2>
         </div>
         <p class="unit-note">Все объёмы в кВт*ч</p>
       </div>

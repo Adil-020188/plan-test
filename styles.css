@@ -166,6 +166,72 @@ h2 {
   align-items: end;
 }
 
+.month-picker {
+  width: min(100%, 260px);
+}
+
+.month-note {
+  margin-bottom: 18px;
+}
+
+.month-day-list {
+  display: grid;
+  gap: 10px;
+}
+
+.day-summary {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) minmax(0, 3fr);
+  align-items: center;
+  gap: 18px;
+  min-height: 72px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfcfc;
+}
+
+.day-summary-title {
+  min-width: 0;
+}
+
+.day-summary-date {
+  display: block;
+  font-weight: 800;
+}
+
+.day-summary-comparison {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.day-summary-values {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.day-summary-values div {
+  min-width: 0;
+}
+
+.day-summary-values dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.day-summary-values dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
 .status-badge {
   padding: 8px 12px;
   border-radius: 999px;
@@ -551,6 +617,20 @@ tfoot .hour-column {
 
   .panel {
     padding: 16px;
+  }
+
+  .month-picker {
+    width: 100%;
+  }
+
+  .day-summary {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .day-summary-values {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 14px;
   }
 
   .section-nav {
