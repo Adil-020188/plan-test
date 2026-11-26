@@ -79,6 +79,36 @@ button:disabled {
   margin-bottom: 28px;
 }
 
+.section-nav {
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.section-nav-button {
+  flex: 1 1 0;
+  color: var(--muted);
+  background: transparent;
+}
+
+.section-nav-button:hover {
+  color: var(--accent-dark);
+  background: var(--accent-soft);
+}
+
+.section-nav-button.is-active {
+  color: #fff;
+  background: var(--accent);
+}
+
+[data-view][hidden] {
+  display: none;
+}
+
 .eyebrow,
 .step-label {
   margin: 0 0 6px;
@@ -521,6 +551,15 @@ tfoot .hour-column {
 
   .panel {
     padding: 16px;
+  }
+
+  .section-nav {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .section-nav-button {
+    padding-inline: 10px;
   }
 
   h1 {

@@ -9,6 +9,8 @@
   const MAX_IMPORT_ROWS = 31 * HOUR_COUNT;
 
   const elements = {
+    viewButtons: Array.from(document.querySelectorAll("[data-view-target]")),
+    views: Array.from(document.querySelectorAll("[data-view]")),
     previousDate: document.querySelector("#previous-date"),
     currentDate: document.querySelector("#current-date"),
     dateError: document.querySelector("#date-error"),
@@ -41,6 +43,18 @@
   let pairIsValid = false;
   let pendingImport = null;
   const rowControls = [];
+
+  function showView(viewName) {
+    elements.views.forEach(function (view) {
+      view.hidden = view.dataset.view !== viewName;
+    });
+
+    elements.viewButtons.forEach(function (button) {
+      const isActive = button.dataset.viewTarget === viewName;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
+    });
+  }
 
   function emptyRecord() {
     return {
@@ -1097,6 +1111,13 @@
 
   function initialize() {
     createRows();
+
+    elements.viewButtons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        showView(button.dataset.viewTarget);
+      });
+    });
+    showView("main");
 
     const dates = state.selected && areConsecutiveMonths(state.selected.previous, state.selected.current)
       ? state.selected

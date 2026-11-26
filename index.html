@@ -15,7 +15,12 @@
       <p class="intro">Сопоставьте почасовые объёмы за две даты соседних месяцев.</p>
     </header>
 
-    <section class="panel date-panel" aria-labelledby="dates-title">
+    <nav class="section-nav" aria-label="Разделы планировщика">
+      <button class="section-nav-button is-active" type="button" data-view-target="main" aria-pressed="true">Главная</button>
+      <button class="section-nav-button" type="button" data-view-target="analytics" aria-pressed="false">Аналитика</button>
+    </nav>
+
+    <section class="panel date-panel" data-view="main" aria-labelledby="dates-title">
       <div class="section-heading">
         <div>
           <p class="step-label">Шаг 1</p>
@@ -38,7 +43,7 @@
       <p class="form-message" id="date-error" role="alert" hidden></p>
     </section>
 
-    <section class="panel import-panel" aria-labelledby="import-title">
+    <section class="panel import-panel" data-view="main" aria-labelledby="import-title">
       <div class="section-heading compact-heading">
         <div>
           <p class="step-label">Импорт</p>
@@ -92,7 +97,7 @@
       </div>
     </section>
 
-    <section class="panel consumption-panel" aria-labelledby="consumption-title">
+    <section class="panel consumption-panel" data-view="analytics" aria-labelledby="consumption-title" hidden>
       <div class="section-heading compact-heading">
         <div>
           <p class="step-label">Шаг 2</p>
@@ -133,7 +138,7 @@
       <p class="scroll-hint">На телефоне проведите по таблице влево, чтобы увидеть все столбцы.</p>
     </section>
 
-    <section class="panel tariff-panel" aria-labelledby="tariffs-title">
+    <section class="panel tariff-panel" data-view="main" aria-labelledby="tariffs-title">
       <div class="section-heading compact-heading">
         <div>
           <p class="step-label">Шаг 3</p>
