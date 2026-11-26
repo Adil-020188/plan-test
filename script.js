@@ -4,6 +4,7 @@
   const STORAGE_KEY = "energyPlannerComparisonV1";
   const HOUR_COUNT = 24;
   const DISPLAY_VOLUME_DECIMALS = 6;
+  const MAX_HOURLY_VOLUME = Number.MAX_VALUE / (HOUR_COUNT * 2);
   const MAX_XLSX_SIZE = 5 * 1024 * 1024;
   const MAX_IMPORT_ROWS = 31 * HOUR_COUNT;
 
@@ -61,7 +62,7 @@
     if (Array.isArray(record.volumes)) {
       clean.volumes = clean.volumes.map(function (_, index) {
         const value = record.volumes[index];
-        return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+        return isValidVolume(value) ? value : null;
       });
     }
 
@@ -210,6 +211,13 @@
     return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, " ") + " ₸";
   }
 
+  function isValidVolume(value) {
+    return typeof value === "number"
+      && Number.isFinite(value)
+      && value >= 0
+      && value <= MAX_HOURLY_VOLUME;
+  }
+
   function parseVolume(value) {
     const normalized = String(value).trim().replace(",", ".");
     const expression = /^(?:\d+(?:[.]\d*)?|[.]\d+)$/;
@@ -219,7 +227,7 @@
     }
 
     const number = Number(normalized);
-    return Number.isFinite(number) && number >= 0 ? number : null;
+    return isValidVolume(number) ? number : null;
   }
 
   function parseTariff(value) {
@@ -827,7 +835,7 @@
 
   function parseImportVolume(value) {
     if (typeof value === "number") {
-      return Number.isFinite(value) && value >= 0 ? value : null;
+      return isValidVolume(value) ? value : null;
     }
 
     const text = String(value === undefined ? "" : value).trim().replace(",", ".");
@@ -836,7 +844,7 @@
     }
 
     const number = Number(text);
-    return Number.isFinite(number) && number >= 0 ? number : null;
+    return isValidVolume(number) ? number : null;
   }
 
   function isBlankCell(value) {
