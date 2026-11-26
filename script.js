@@ -1024,7 +1024,7 @@
     }
 
     if (file.size > MAX_XLSX_SIZE) {
-      renderImportResult(file.name, emptyImportResult("Файл: размер больше 5 МБ"));
+      renderImportResult(file.name, emptyImportResult("Файл больше 5 МБ"));
       return;
     }
 
