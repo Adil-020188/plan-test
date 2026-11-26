@@ -517,11 +517,9 @@
     const record = getRecord(getDateForPeriod(input.dataset.period));
 
     if (value === null) {
-      record.tariffs[input.dataset.tariff] = null;
       input.value = "";
       input.setAttribute("aria-invalid", "true");
       error.textContent = "Введите целое число";
-      saveState();
       return;
     }
 
