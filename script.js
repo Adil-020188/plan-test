@@ -7,6 +7,9 @@
   const MAX_HOURLY_VOLUME = Number.MAX_VALUE / (HOUR_COUNT * 2);
   const MAX_XLSX_SIZE = 5 * 1024 * 1024;
   const MAX_IMPORT_ROWS = 31 * HOUR_COUNT;
+  const DEFAULT_VAT = 16;
+  const MAX_RATE_VALUE = Number.MAX_SAFE_INTEGER;
+  const MAX_RATE_INPUT_LENGTH = 30;
 
   const elements = {
     viewButtons: Array.from(document.querySelectorAll("[data-view-target]")),
@@ -487,7 +490,7 @@
   function emptyMonthlyTariff() {
     return {
       withoutVat: null,
-      vat: null
+      vat: DEFAULT_VAT
     };
   }
 
@@ -500,7 +503,9 @@
 
     ["withoutVat", "vat"].forEach(function (name) {
       const value = tariff[name];
-      clean[name] = Number.isFinite(value) && value >= 0 ? value : null;
+      if (isValidRate(value)) {
+        clean[name] = value;
+      }
     });
 
     return clean;
@@ -684,12 +689,15 @@
     }).format(normalized);
   }
 
-  function formatMoney(value) {
-    if (!Number.isSafeInteger(value) || value < 0) {
+  function formatRate(value) {
+    if (!isValidRate(value)) {
       return "";
     }
 
-    return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, " ") + " ₸";
+    return new Intl.NumberFormat("ru-RU", {
+      maximumFractionDigits: 20,
+      useGrouping: true
+    }).format(value);
   }
 
   function isValidVolume(value) {
@@ -711,18 +719,30 @@
     return isValidVolume(number) ? number : null;
   }
 
-  function parseTariff(value) {
+  function isValidRate(value) {
+    return typeof value === "number"
+      && Number.isFinite(value)
+      && value >= 0
+      && value <= MAX_RATE_VALUE;
+  }
+
+  function parseRate(value) {
     const normalized = String(value)
       .replace(/₸/g, "")
       .replace(/[\s\u00a0\u202f]/g, "")
-      .trim();
+      .trim()
+      .replace(",", ".");
 
-    if (!/^\d+$/.test(normalized)) {
+    if (
+      normalized.length === 0
+      || normalized.length > MAX_RATE_INPUT_LENGTH
+      || !/^(?:\d+(?:[.]\d*)?|[.]\d+)$/.test(normalized)
+    ) {
       return null;
     }
 
     const number = Number(normalized);
-    return Number.isSafeInteger(number) && number >= 0 ? number : null;
+    return isValidRate(number) ? number : null;
   }
 
   function getRecord(date) {
@@ -785,7 +805,7 @@
 
     elements.tariffInputs.forEach(function (input) {
       const tariff = getMonthlyTariff(getMonthForPeriod(input.dataset.period));
-      input.value = formatMoney(tariff[input.dataset.tariff]);
+      input.value = formatRate(tariff[input.dataset.tariff]);
       input.removeAttribute("aria-invalid");
     });
   }
@@ -824,7 +844,7 @@
 
   function handleTariffFocus(event) {
     const input = event.currentTarget;
-    const parsed = parseTariff(input.value);
+    const parsed = parseRate(input.value);
     if (parsed !== null) {
       input.value = String(parsed);
     }
@@ -839,19 +859,21 @@
 
   function handleTariffBlur(event) {
     const input = event.currentTarget;
-    const value = parseTariff(input.value);
+    const value = parseRate(input.value);
     const error = document.querySelector("#" + input.id + "-error");
     const tariff = getMonthlyTariff(getMonthForPeriod(input.dataset.period));
 
     if (value === null) {
       input.value = "";
       input.setAttribute("aria-invalid", "true");
-      error.textContent = "Введите целое число";
+      error.textContent = input.dataset.tariff === "vat"
+        ? "Введите НДС: 0 или больше"
+        : "Введите тариф: 0 или больше";
       return;
     }
 
     tariff[input.dataset.tariff] = value;
-    input.value = formatMoney(value);
+    input.value = formatRate(value);
     input.removeAttribute("aria-invalid");
     error.textContent = "";
     saveState();

@@ -142,7 +142,7 @@
             <p class="step-label">Тариф и НДС</p>
             <h2 id="tariffs-title">Тарифы месяцев</h2>
           </div>
-          <p class="unit-note">Без НДС</p>
+          <p class="unit-note">Исходные значения</p>
         </div>
 
         <div class="tariff-grid">
@@ -150,9 +150,14 @@
             <legend>Предыдущий месяц</legend>
             <p class="tariff-date" id="previous-tariff-date">—</p>
             <label class="field-group" for="previous-tariff-without-vat">
-              <span>Тариф без НДС</span>
-              <input id="previous-tariff-without-vat" class="tariff-input" type="text" inputmode="numeric" autocomplete="off" placeholder="0 ₸" data-period="previous" data-tariff="withoutVat">
+              <span>Тариф без НДС, ₸/кВт*ч</span>
+              <input id="previous-tariff-without-vat" class="tariff-input" type="text" inputmode="decimal" autocomplete="off" placeholder="0" data-period="previous" data-tariff="withoutVat">
               <small class="input-error" id="previous-tariff-without-vat-error"></small>
+            </label>
+            <label class="field-group" for="previous-vat">
+              <span>НДС, %</span>
+              <input id="previous-vat" class="tariff-input" type="text" inputmode="decimal" autocomplete="off" placeholder="16" data-period="previous" data-tariff="vat">
+              <small class="input-error" id="previous-vat-error"></small>
             </label>
           </fieldset>
 
@@ -160,9 +165,14 @@
             <legend>Текущий месяц</legend>
             <p class="tariff-date" id="current-tariff-date">—</p>
             <label class="field-group" for="current-tariff-without-vat">
-              <span>Тариф без НДС</span>
-              <input id="current-tariff-without-vat" class="tariff-input" type="text" inputmode="numeric" autocomplete="off" placeholder="0 ₸" data-period="current" data-tariff="withoutVat">
+              <span>Тариф без НДС, ₸/кВт*ч</span>
+              <input id="current-tariff-without-vat" class="tariff-input" type="text" inputmode="decimal" autocomplete="off" placeholder="0" data-period="current" data-tariff="withoutVat">
               <small class="input-error" id="current-tariff-without-vat-error"></small>
+            </label>
+            <label class="field-group" for="current-vat">
+              <span>НДС, %</span>
+              <input id="current-vat" class="tariff-input" type="text" inputmode="decimal" autocomplete="off" placeholder="16" data-period="current" data-tariff="vat">
+              <small class="input-error" id="current-vat-error"></small>
             </label>
           </fieldset>
         </div>
