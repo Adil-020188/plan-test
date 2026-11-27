@@ -40,6 +40,9 @@
     forecastFilledHours: document.querySelector("#forecast-filled-hours"),
     forecastWarning: document.querySelector("#forecast-warning"),
     forecastAnalysisBody: document.querySelector("#forecast-analysis-body"),
+    calculateForecast: document.querySelector("#calculate-forecast"),
+    forecastResultMessage: document.querySelector("#forecast-result-message"),
+    forecastResults: document.querySelector("#forecast-results"),
     previousTariffDate: document.querySelector("#previous-tariff-date"),
     currentTariffDate: document.querySelector("#current-tariff-date"),
     xlsxFile: document.querySelector("#xlsx-file"),
@@ -70,6 +73,7 @@
 
   let state = readState();
   let pendingImport = null;
+  let forecastPreview = null;
 
   function showView(viewName) {
     const safeView = viewName === "analytics" ? "analytics" : "main";
@@ -560,7 +564,8 @@
         pairCount: 0,
         previousSum: 0,
         currentSum: 0,
-        currentCount: 0
+        currentCount: 0,
+        currentAllSum: 0
       };
     });
     let previousFilled = 0;
@@ -577,6 +582,7 @@
         if (current !== null) {
           currentFilled += 1;
           hours[hour].currentCount += 1;
+          hours[hour].currentAllSum += current;
         }
         if (previous !== null) {
           previousFilled += 1;
@@ -652,6 +658,10 @@
 
   function renderForecastAnalysis(currentMonth) {
     const previousMonth = previousMonthValue(currentMonth);
+    if (forecastPreview && forecastPreview.currentMonth !== currentMonth) {
+      forecastPreview = null;
+      clearForecastResult("Нажмите «Рассчитать прогноз», чтобы получить почасовые объёмы на двое суток.", false);
+    }
     elements.forecastPreviousMonth.textContent = monthLabel(previousMonth);
     elements.forecastCurrentMonth.textContent = monthLabel(currentMonth);
     elements.forecastLastDate.textContent = "—";
@@ -659,6 +669,7 @@
     elements.forecastSecondDate.textContent = "—";
     elements.forecastFilledHours.textContent = "—";
     elements.forecastWarning.classList.remove("has-errors");
+    elements.calculateForecast.disabled = true;
 
     if (!isMonthString(currentMonth)) {
       elements.forecastWarning.textContent = "Выберите текущий месяц для анализа.";
@@ -711,7 +722,205 @@
       elements.forecastWarning.textContent = "Почасовой анализ выполнен. Данные есть для всех 24 часов.";
     }
 
+    elements.calculateForecast.disabled = false;
     renderForecastRows(analysis);
+  }
+
+  function previousCalendarDate(value) {
+    const date = parseLocalDate(value);
+    if (!date) {
+      return null;
+    }
+
+    const month = String(date.getFullYear()).padStart(4, "0") + "-"
+      + String(date.getMonth() + 1).padStart(2, "0");
+    const previousMonth = previousMonthValue(month);
+    const day = date.getDate();
+    return day <= daysInMonth(previousMonth) ? dateForMonthDay(previousMonth, day) : null;
+  }
+
+  function calculateForecastDay(date, analysis) {
+    const baseDate = previousCalendarDate(date);
+    const values = [];
+    const details = [];
+    const missingHours = [];
+
+    for (let hour = 0; hour < HOUR_COUNT; hour += 1) {
+      const source = analysis.hours[hour];
+      const coefficient = source.pairCount > 0 && source.previousSum > 0
+        ? source.currentSum / source.previousSum
+        : null;
+      const base = getStoredVolume(baseDate, hour);
+      const average = source.currentCount > 0
+        ? source.currentAllSum / source.currentCount
+        : null;
+      let value = null;
+      let method = null;
+
+      if (base !== null && coefficient !== null) {
+        value = base * coefficient;
+        method = "coefficient";
+      } else if (average !== null) {
+        value = average;
+        method = "average";
+      }
+
+      if (!isValidVolume(value)) {
+        missingHours.push(hour);
+        values.push(null);
+        details.push(null);
+        continue;
+      }
+
+      const rounded = Number(value.toFixed(2));
+      if (!isValidVolume(rounded)) {
+        missingHours.push(hour);
+        values.push(null);
+        details.push(null);
+        continue;
+      }
+      values.push(rounded);
+      details.push({
+        base: base,
+        coefficient: coefficient,
+        average: average,
+        method: method
+      });
+    }
+
+    return {
+      date: date,
+      baseDate: baseDate,
+      values: values,
+      details: details,
+      missingHours: missingHours
+    };
+  }
+
+  function clearForecastResult(message, hasErrors) {
+    elements.forecastResults.hidden = true;
+    elements.forecastResults.replaceChildren();
+    elements.forecastResultMessage.textContent = message;
+    elements.forecastResultMessage.classList.toggle("has-errors", Boolean(hasErrors));
+  }
+
+  function createForecastResultCard(day) {
+    const card = document.createElement("article");
+    const heading = document.createElement("div");
+    const title = document.createElement("h3");
+    const baseDate = document.createElement("p");
+    const table = document.createElement("table");
+    const head = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    const body = document.createElement("tbody");
+    const foot = document.createElement("tfoot");
+    const footRow = document.createElement("tr");
+    let total = 0;
+
+    card.className = "forecast-result-card";
+    heading.className = "forecast-result-card-heading";
+    title.textContent = formatDate(day.date);
+    baseDate.textContent = "Базовая дата: " + formatDate(day.baseDate);
+    table.className = "forecast-result-table";
+
+    ["Час", "База, кВт*ч", "Расчёт", "Прогноз, кВт*ч"].forEach(function (heading) {
+      const cell = document.createElement("th");
+      cell.scope = "col";
+      cell.textContent = heading;
+      headRow.appendChild(cell);
+    });
+
+    day.values.forEach(function (value, hour) {
+      const row = document.createElement("tr");
+      const hourCell = document.createElement("th");
+      const baseCell = document.createElement("td");
+      const calculationCell = document.createElement("td");
+      const valueCell = document.createElement("td");
+      const detail = day.details[hour];
+      hourCell.scope = "row";
+      hourCell.textContent = hourInterval(hour);
+      baseCell.textContent = detail.base === null ? "—" : formatNumber(detail.base, 2);
+      calculationCell.textContent = detail.method === "coefficient"
+        ? formatNumber(detail.base, 2) + " × " + formatNumber(detail.coefficient, 4)
+        : "Среднее: " + formatNumber(detail.average, 2);
+      valueCell.textContent = formatNumber(value, 2);
+      total += value;
+      row.appendChild(hourCell);
+      row.appendChild(baseCell);
+      row.appendChild(calculationCell);
+      row.appendChild(valueCell);
+      body.appendChild(row);
+    });
+
+    const totalLabel = document.createElement("th");
+    const totalValue = document.createElement("td");
+    totalLabel.scope = "row";
+    totalLabel.colSpan = 3;
+    totalLabel.textContent = "Итого за сутки";
+    totalValue.textContent = formatNumber(total, 2) + " кВт*ч";
+    footRow.appendChild(totalLabel);
+    footRow.appendChild(totalValue);
+    foot.appendChild(footRow);
+    head.appendChild(headRow);
+    table.appendChild(head);
+    table.appendChild(body);
+    table.appendChild(foot);
+    heading.appendChild(title);
+    heading.appendChild(baseDate);
+    card.appendChild(heading);
+    card.appendChild(table);
+    return card;
+  }
+
+  function renderForecastResult(preview) {
+    const fragment = document.createDocumentFragment();
+    preview.days.forEach(function (day) {
+      fragment.appendChild(createForecastResultCard(day));
+    });
+    elements.forecastResults.replaceChildren(fragment);
+    elements.forecastResults.hidden = false;
+    elements.forecastResultMessage.classList.remove("has-errors");
+    elements.forecastResultMessage.textContent = "Прогноз рассчитан на "
+      + preview.days.map(function (day) { return formatDate(day.date); }).join(" и ") + ".";
+  }
+
+  function handleForecastCalculation() {
+    const currentMonth = elements.analyticsMonth.value;
+    const latestDate = findLatestFactDate(currentMonth);
+    if (!isMonthString(currentMonth) || !latestDate) {
+      forecastPreview = null;
+      clearForecastResult("Недостаточно фактических данных для расчёта прогноза.", true);
+      return;
+    }
+
+    const analysis = analyzeForecastSource(currentMonth, latestDate);
+    const dates = [addDaysToDateString(latestDate, 2), addDaysToDateString(latestDate, 3)];
+    const days = dates.map(function (date) {
+      return calculateForecastDay(date, analysis);
+    });
+    const missing = new Set();
+    days.forEach(function (day) {
+      day.missingHours.forEach(function (hour) {
+        missing.add(hour);
+      });
+    });
+
+    if (missing.size > 0) {
+      forecastPreview = null;
+      const labels = Array.from(missing).sort(function (a, b) { return a - b; }).map(hourInterval);
+      clearForecastResult(
+        "Прогноз не сформирован. Недостаточно данных для часов: " + labels.join(", ") + ".",
+        true
+      );
+      return;
+    }
+
+    forecastPreview = {
+      currentMonth: currentMonth,
+      latestDate: latestDate,
+      days: days
+    };
+    renderForecastResult(forecastPreview);
   }
 
   function createMonthVolumeCell(recordDate, currentDate, previousDate, hour, time, period) {
@@ -2075,6 +2284,7 @@
     elements.clearDateButton.addEventListener("click", handleClearDate);
     elements.clearMonthScope.addEventListener("change", handleClearMonthScopeChange);
     elements.clearMonthButton.addEventListener("click", handleClearMonth);
+    elements.calculateForecast.addEventListener("click", handleForecastCalculation);
     elements.tariffInputs.forEach(function (input) {
       input.addEventListener("focus", handleTariffFocus);
       input.addEventListener("input", handleTariffInput);

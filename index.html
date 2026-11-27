@@ -363,6 +363,15 @@
           </table>
         </div>
         <p class="scroll-hint">Проведите по таблице влево, чтобы увидеть все столбцы.</p>
+
+        <div class="forecast-actions">
+          <button class="primary-button" id="calculate-forecast" type="button">Рассчитать прогноз</button>
+          <p class="field-help">Расчёт не изменяет фактические объёмы.</p>
+        </div>
+        <p class="forecast-result-message" id="forecast-result-message" role="status" aria-live="polite">
+          Нажмите «Рассчитать прогноз», чтобы получить почасовые объёмы на двое суток.
+        </p>
+        <div class="forecast-results" id="forecast-results" aria-live="polite" hidden></div>
       </section>
     </div>
   </main>

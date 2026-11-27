@@ -475,6 +475,102 @@ h2 {
   font-weight: 700;
 }
 
+.forecast-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.forecast-actions .field-help {
+  margin: 0;
+}
+
+.forecast-result-message {
+  margin: 14px 0 0;
+  color: var(--accent-dark);
+  font-weight: 700;
+}
+
+.forecast-result-message.has-errors {
+  color: var(--danger);
+}
+
+.forecast-results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.forecast-result-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fbfcfc;
+}
+
+.forecast-result-card-heading {
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--accent-soft);
+}
+
+.forecast-result-card h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.forecast-result-card-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.forecast-result-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.forecast-result-table th:first-child,
+.forecast-result-table td:first-child {
+  width: 28%;
+  text-align: left;
+}
+
+.forecast-result-table th:nth-child(2),
+.forecast-result-table td:nth-child(2) {
+  width: 18%;
+}
+
+.forecast-result-table th:nth-child(3),
+.forecast-result-table td:nth-child(3) {
+  width: 30%;
+}
+
+.forecast-result-table th:nth-child(4),
+.forecast-result-table td:nth-child(4) {
+  width: 24%;
+}
+
+.forecast-result-table th,
+.forecast-result-table td {
+  white-space: normal;
+}
+
+.forecast-result-table tbody th {
+  color: #46525e;
+  background: #fbfcfc;
+}
+
+.forecast-result-table tbody td,
+.forecast-result-table tfoot td {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
 .day-card {
   overflow: hidden;
   border: 1px solid var(--line);
@@ -1059,6 +1155,15 @@ tfoot .hour-column {
   .import-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .forecast-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .forecast-results {
+    grid-template-columns: 1fr;
   }
 
   .tariff-card {
