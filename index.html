@@ -110,6 +110,28 @@
       </div>
 
       <p class="unit-note month-note">Нажмите на день, чтобы открыть или скрыть 24 почасовых значения.</p>
+      <dl class="month-summary" aria-label="Итоги выбранного месяца">
+        <div>
+          <dt>Предыдущий месяц</dt>
+          <dd><span id="month-previous-total">0</span> кВт*ч</dd>
+        </div>
+        <div>
+          <dt>Текущий месяц</dt>
+          <dd><span id="month-current-total">0</span> кВт*ч</dd>
+        </div>
+        <div>
+          <dt>Разница</dt>
+          <dd><span id="month-difference-total">0</span> кВт*ч</dd>
+        </div>
+        <div>
+          <dt>Изменение</dt>
+          <dd id="month-percent-total">—</dd>
+        </div>
+        <div>
+          <dt>Полные дни</dt>
+          <dd id="month-complete-days">0</dd>
+        </div>
+      </dl>
       <div class="month-day-list" id="month-day-list" aria-live="polite"></div>
     </section>
 

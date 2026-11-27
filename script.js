@@ -13,6 +13,11 @@
     views: Array.from(document.querySelectorAll("[data-view]")),
     analyticsMonth: document.querySelector("#analytics-month"),
     monthDayList: document.querySelector("#month-day-list"),
+    monthPreviousTotal: document.querySelector("#month-previous-total"),
+    monthCurrentTotal: document.querySelector("#month-current-total"),
+    monthDifferenceTotal: document.querySelector("#month-difference-total"),
+    monthPercentTotal: document.querySelector("#month-percent-total"),
+    monthCompleteDays: document.querySelector("#month-complete-days"),
     previousDate: document.querySelector("#previous-date"),
     currentDate: document.querySelector("#current-date"),
     dateError: document.querySelector("#date-error"),
@@ -98,6 +103,58 @@
     }
 
     return { total: total, filled: filled, hasData: filled > 0 };
+  }
+
+  function summarizeMonth(currentMonth) {
+    const previousMonth = previousMonthValue(currentMonth);
+    const currentDayCount = daysInMonth(currentMonth);
+    const previousDayCount = daysInMonth(previousMonth);
+    let previousTotal = 0;
+    let currentTotal = 0;
+    let completeDays = 0;
+
+    for (let day = 1; day <= currentDayCount; day += 1) {
+      const current = summarizeDate(dateForMonthDay(currentMonth, day));
+      currentTotal += current.total;
+      if (current.filled === HOUR_COUNT) {
+        completeDays += 1;
+      }
+
+      if (day <= previousDayCount) {
+        previousTotal += summarizeDate(dateForMonthDay(previousMonth, day)).total;
+      }
+    }
+
+    return {
+      previousTotal: previousTotal,
+      currentTotal: currentTotal,
+      completeDays: completeDays,
+      dayCount: currentDayCount
+    };
+  }
+
+  function renderMonthSummary(currentMonth) {
+    if (!isMonthString(currentMonth)) {
+      elements.monthPreviousTotal.textContent = "—";
+      elements.monthCurrentTotal.textContent = "—";
+      elements.monthDifferenceTotal.textContent = "—";
+      elements.monthPercentTotal.textContent = "—";
+      elements.monthCompleteDays.textContent = "—";
+      setDifferenceStyle(elements.monthDifferenceTotal, null);
+      setDifferenceStyle(elements.monthPercentTotal, null);
+      return;
+    }
+
+    const summary = summarizeMonth(currentMonth);
+    const difference = summary.currentTotal - summary.previousTotal;
+    const percent = summary.previousTotal > 0 ? (difference / summary.previousTotal) * 100 : null;
+    elements.monthPreviousTotal.textContent = formatNumber(summary.previousTotal, DISPLAY_VOLUME_DECIMALS);
+    elements.monthCurrentTotal.textContent = formatNumber(summary.currentTotal, DISPLAY_VOLUME_DECIMALS);
+    elements.monthDifferenceTotal.textContent = formatNumber(difference, DISPLAY_VOLUME_DECIMALS);
+    elements.monthPercentTotal.textContent = percent === null ? "—" : formatNumber(percent, 2) + "%";
+    elements.monthCompleteDays.textContent = summary.completeDays + " из " + summary.dayCount;
+    setDifferenceStyle(elements.monthDifferenceTotal, difference);
+    setDifferenceStyle(elements.monthPercentTotal, percent);
   }
 
   function createDayMetric(label, field) {
@@ -286,6 +343,7 @@
     const card = input.closest(".day-card");
     updateDaySummary(card);
     updateHourlyRow(input.closest("tr"), input.dataset.currentDate, input.dataset.previousDate || null, hour);
+    renderMonthSummary(elements.analyticsMonth.value);
   }
 
   function handleMonthVolumeBlur(event) {
@@ -363,6 +421,7 @@
   function renderMonthDays() {
     const currentMonth = elements.analyticsMonth.value;
     elements.monthDayList.replaceChildren();
+    renderMonthSummary(currentMonth);
 
     if (!isMonthString(currentMonth)) {
       return;
@@ -1270,6 +1329,9 @@
 
     if (result.dates.has(elements.previousDate.value)) {
       loadVisibleData();
+    }
+    if (isDateString(elements.currentDate.value)) {
+      elements.analyticsMonth.value = elements.currentDate.value.slice(0, 7);
     }
     renderMonthDays();
   }
