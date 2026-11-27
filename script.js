@@ -24,6 +24,8 @@
     homeWithVat: document.querySelector("#home-with-vat"),
     homeCompleteDays: document.querySelector("#home-complete-days"),
     homeThresholdDays: document.querySelector("#home-threshold-days"),
+    homeVolumeChart: document.querySelector("#home-volume-chart"),
+    homeChartDescription: document.querySelector("#home-chart-description"),
     monthDayList: document.querySelector("#month-day-list"),
     monthPreviousTotal: document.querySelector("#month-previous-total"),
     monthCurrentTotal: document.querySelector("#month-current-total"),
@@ -170,6 +172,130 @@
     return formatNumber(Math.round(value), 0) + " ₸";
   }
 
+  function createSvgElement(name, attributes) {
+    const element = document.createElementNS("http://www.w3.org/2000/svg", name);
+    Object.keys(attributes || {}).forEach(function (attribute) {
+      element.setAttribute(attribute, String(attributes[attribute]));
+    });
+    return element;
+  }
+
+  function appendChartText(parent, text, x, y, className) {
+    const label = createSvgElement("text", { x: x, y: y, class: className });
+    label.textContent = text;
+    parent.appendChild(label);
+  }
+
+  function getChartFactDays(currentMonth) {
+    if (!isMonthString(currentMonth)) {
+      return [];
+    }
+
+    const previousMonth = previousMonthValue(currentMonth);
+    const currentDayCount = daysInMonth(currentMonth);
+    const previousDayCount = daysInMonth(previousMonth);
+    const days = [];
+
+    for (let day = 1; day <= currentDayCount; day += 1) {
+      const current = summarizeDate(dateForMonthDay(currentMonth, day));
+      const previous = day <= previousDayCount
+        ? summarizeDate(dateForMonthDay(previousMonth, day))
+        : { total: 0, filled: 0, hasData: false };
+      days.push({
+        day: day,
+        current: current.hasData ? current.total : null,
+        previous: previous.hasData ? previous.total : null
+      });
+    }
+
+    return days;
+  }
+
+  function getChartMaximum(days) {
+    let maximum = 0;
+
+    days.forEach(function (item) {
+      [item.previous, item.current].forEach(function (value) {
+        if (typeof value === "number" && Number.isFinite(value) && value > maximum) {
+          maximum = value;
+        }
+      });
+    });
+
+    return maximum + 2000;
+  }
+
+  function formatChartDate(month, day) {
+    const monthNumber = month.slice(5, 7);
+    return String(day).padStart(2, "0") + "." + monthNumber;
+  }
+
+  function renderHomeChartFrame(currentMonth) {
+    const chart = elements.homeVolumeChart;
+    const chartWidth = 1400;
+    const plotLeft = 130;
+    const plotRight = 1365;
+    const plotTop = 55;
+    const plotBottom = 345;
+    const tickCount = 4;
+    const days = getChartFactDays(currentMonth);
+    chart.replaceChildren(elements.homeChartDescription);
+
+    if (days.length === 0) {
+      elements.homeChartDescription.textContent = "Выберите месяц, чтобы увидеть шкалу суточных объёмов.";
+      appendChartText(chart, "Выберите месяц", chartWidth / 2, 215, "home-chart-date-label");
+      return;
+    }
+
+    const maximum = getChartMaximum(days);
+    const plotWidth = plotRight - plotLeft;
+    const daySpacing = plotWidth / days.length;
+    const fragment = document.createDocumentFragment();
+
+    appendChartText(fragment, "Объём, кВт*ч", 20, 28, "home-chart-unit-label");
+
+    for (let tick = 0; tick <= tickCount; tick += 1) {
+      const ratio = tick / tickCount;
+      const y = plotBottom - ratio * (plotBottom - plotTop);
+      const value = maximum * ratio;
+      fragment.appendChild(createSvgElement("line", {
+        x1: plotLeft,
+        y1: y,
+        x2: plotRight,
+        y2: y,
+        class: "home-chart-grid-line"
+      }));
+      appendChartText(fragment, formatNumber(value, 2), plotLeft - 14, y + 4, "home-chart-axis-label");
+    }
+
+    fragment.appendChild(createSvgElement("line", {
+      x1: plotLeft,
+      y1: plotTop,
+      x2: plotLeft,
+      y2: plotBottom,
+      class: "home-chart-axis-line"
+    }));
+    fragment.appendChild(createSvgElement("line", {
+      x1: plotLeft,
+      y1: plotBottom,
+      x2: plotRight,
+      y2: plotBottom,
+      class: "home-chart-axis-line"
+    }));
+
+    days.forEach(function (item, index) {
+      const x = plotLeft + daySpacing * (index + 0.5);
+      appendChartText(fragment, formatChartDate(currentMonth, item.day), x, 382, "home-chart-date-label");
+    });
+
+    chart.appendChild(fragment);
+    elements.homeChartDescription.textContent = "Шкала суточных объёмов за "
+      + monthLabel(currentMonth)
+      + ": от 0 до "
+      + formatNumber(maximum, 2)
+      + " кВт*ч.";
+  }
+
   function renderHomeSummary(currentMonth, summary) {
     if (!summary || !isMonthString(currentMonth)) {
       elements.homePreviousTotal.textContent = "—";
@@ -182,6 +308,7 @@
       elements.homeThresholdDays.textContent = "—";
       setDifferenceStyle(elements.homeDifferenceTotal, null);
       setDifferenceStyle(elements.homePercentTotal, null);
+      renderHomeChartFrame(currentMonth);
       return;
     }
 
@@ -199,6 +326,7 @@
     elements.homeThresholdDays.textContent = formatNumber(summary.thresholdDays, 0);
     setDifferenceStyle(elements.homeDifferenceTotal, difference);
     setDifferenceStyle(elements.homePercentTotal, percent);
+    renderHomeChartFrame(currentMonth);
   }
 
   function renderMonthSummary(currentMonth) {
