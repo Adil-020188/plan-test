@@ -20,6 +20,54 @@
       <button class="section-nav-button" type="button" data-view-target="analytics" aria-pressed="false">Аналитика</button>
     </nav>
 
+    <section class="panel home-summary-panel" data-view="main" aria-labelledby="home-summary-title">
+      <div class="section-heading">
+        <div>
+          <p class="step-label">Сводка</p>
+          <h2 id="home-summary-title">Картина месяца</h2>
+        </div>
+        <label class="field-group month-picker" for="main-month">
+          <span>Текущий месяц</span>
+          <input id="main-month" type="month">
+        </label>
+      </div>
+
+      <dl class="home-summary" aria-label="Краткая сводка выбранного месяца">
+        <div>
+          <dt>Объём месяца</dt>
+          <dd><span id="home-current-total">0</span> кВт*ч</dd>
+        </div>
+        <div>
+          <dt>Предыдущий месяц</dt>
+          <dd><span id="home-previous-total">0</span> кВт*ч</dd>
+        </div>
+        <div>
+          <dt>Разница</dt>
+          <dd><span id="home-difference-total">0</span> кВт*ч</dd>
+        </div>
+        <div>
+          <dt>Изменение</dt>
+          <dd id="home-percent-total">—</dd>
+        </div>
+        <div>
+          <dt>Сумма без НДС</dt>
+          <dd id="home-without-vat">—</dd>
+        </div>
+        <div>
+          <dt>Сумма с НДС</dt>
+          <dd id="home-with-vat">—</dd>
+        </div>
+        <div>
+          <dt>Заполнено дней</dt>
+          <dd id="home-complete-days">0</dd>
+        </div>
+        <div>
+          <dt>Выше 20%</dt>
+          <dd id="home-threshold-days">0</dd>
+        </div>
+      </dl>
+    </section>
+
     <section class="panel date-panel" data-view="main" aria-labelledby="dates-title">
       <div class="section-heading">
         <div>

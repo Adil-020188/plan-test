@@ -14,7 +14,16 @@
   const elements = {
     viewButtons: Array.from(document.querySelectorAll("[data-view-target]")),
     views: Array.from(document.querySelectorAll("[data-view]")),
+    mainMonth: document.querySelector("#main-month"),
     analyticsMonth: document.querySelector("#analytics-month"),
+    homeCurrentTotal: document.querySelector("#home-current-total"),
+    homePreviousTotal: document.querySelector("#home-previous-total"),
+    homeDifferenceTotal: document.querySelector("#home-difference-total"),
+    homePercentTotal: document.querySelector("#home-percent-total"),
+    homeWithoutVat: document.querySelector("#home-without-vat"),
+    homeWithVat: document.querySelector("#home-with-vat"),
+    homeCompleteDays: document.querySelector("#home-complete-days"),
+    homeThresholdDays: document.querySelector("#home-threshold-days"),
     monthDayList: document.querySelector("#month-day-list"),
     monthPreviousTotal: document.querySelector("#month-previous-total"),
     monthCurrentTotal: document.querySelector("#month-current-total"),
@@ -118,6 +127,7 @@
     let previousTotal = 0;
     let currentTotal = 0;
     let completeDays = 0;
+    let thresholdDays = 0;
 
     for (let day = 1; day <= currentDayCount; day += 1) {
       const current = summarizeDate(dateForMonthDay(currentMonth, day));
@@ -127,7 +137,14 @@
       }
 
       if (day <= previousDayCount) {
-        previousTotal += summarizeDate(dateForMonthDay(previousMonth, day)).total;
+        const previous = summarizeDate(dateForMonthDay(previousMonth, day));
+        previousTotal += previous.total;
+        if (current.hasData && previous.hasData && previous.total > 0) {
+          const dayPercent = ((current.total - previous.total) / previous.total) * 100;
+          if (Number.isFinite(dayPercent) && Math.abs(dayPercent) > 20) {
+            thresholdDays += 1;
+          }
+        }
       }
     }
 
@@ -135,8 +152,53 @@
       previousTotal: previousTotal,
       currentTotal: currentTotal,
       completeDays: completeDays,
+      thresholdDays: thresholdDays,
       dayCount: currentDayCount
     };
+  }
+
+  function formatSignedNumber(value, maximumFractionDigits) {
+    const formatted = formatNumber(value, maximumFractionDigits);
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? "+" + formatted : formatted;
+  }
+
+  function formatWholeMoney(value) {
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+      return "—";
+    }
+
+    return formatNumber(Math.round(value), 0) + " ₸";
+  }
+
+  function renderHomeSummary(currentMonth, summary) {
+    if (!summary || !isMonthString(currentMonth)) {
+      elements.homePreviousTotal.textContent = "—";
+      elements.homeCurrentTotal.textContent = "—";
+      elements.homeDifferenceTotal.textContent = "—";
+      elements.homePercentTotal.textContent = "—";
+      elements.homeWithoutVat.textContent = "—";
+      elements.homeWithVat.textContent = "—";
+      elements.homeCompleteDays.textContent = "—";
+      elements.homeThresholdDays.textContent = "—";
+      setDifferenceStyle(elements.homeDifferenceTotal, null);
+      setDifferenceStyle(elements.homePercentTotal, null);
+      return;
+    }
+
+    const difference = summary.currentTotal - summary.previousTotal;
+    const percent = summary.previousTotal > 0 ? (difference / summary.previousTotal) * 100 : null;
+    const amounts = calculateTariffAmounts(summary.currentTotal, getMonthlyTariff(currentMonth));
+
+    elements.homePreviousTotal.textContent = formatNumber(summary.previousTotal, DISPLAY_VOLUME_DECIMALS);
+    elements.homeCurrentTotal.textContent = formatNumber(summary.currentTotal, DISPLAY_VOLUME_DECIMALS);
+    elements.homeDifferenceTotal.textContent = formatSignedNumber(difference, DISPLAY_VOLUME_DECIMALS);
+    elements.homePercentTotal.textContent = percent === null ? "—" : formatSignedNumber(percent, 2) + "%";
+    elements.homeWithoutVat.textContent = amounts ? formatWholeMoney(amounts.withoutVat) : "—";
+    elements.homeWithVat.textContent = amounts ? formatWholeMoney(amounts.withVat) : "—";
+    elements.homeCompleteDays.textContent = summary.completeDays + " из " + summary.dayCount;
+    elements.homeThresholdDays.textContent = formatNumber(summary.thresholdDays, 0);
+    setDifferenceStyle(elements.homeDifferenceTotal, difference);
+    setDifferenceStyle(elements.homePercentTotal, percent);
   }
 
   function renderMonthSummary(currentMonth) {
@@ -149,6 +211,7 @@
       setDifferenceStyle(elements.monthDifferenceTotal, null);
       setDifferenceStyle(elements.monthPercentTotal, null);
       renderTariffResults(currentMonth, null);
+      renderHomeSummary(currentMonth, null);
       return;
     }
 
@@ -163,6 +226,7 @@
     setDifferenceStyle(elements.monthDifferenceTotal, difference);
     setDifferenceStyle(elements.monthPercentTotal, percent);
     renderTariffResults(currentMonth, summary);
+    renderHomeSummary(currentMonth, summary);
   }
 
   function calculateTariffAmounts(volume, tariff) {
@@ -892,6 +956,17 @@
     state.analyticsMonth = isMonthString(elements.analyticsMonth.value)
       ? elements.analyticsMonth.value
       : null;
+    elements.mainMonth.value = state.analyticsMonth || "";
+    saveState();
+    loadVisibleData();
+    renderMonthDays();
+  }
+
+  function handleMainMonthChange() {
+    state.analyticsMonth = isMonthString(elements.mainMonth.value)
+      ? elements.mainMonth.value
+      : null;
+    elements.analyticsMonth.value = state.analyticsMonth || "";
     saveState();
     loadVisibleData();
     renderMonthDays();
@@ -1507,6 +1582,7 @@
     }
     if (isDateString(elements.currentDate.value)) {
       elements.analyticsMonth.value = elements.currentDate.value.slice(0, 7);
+      elements.mainMonth.value = elements.analyticsMonth.value;
       state.analyticsMonth = elements.analyticsMonth.value;
       saveState();
     }
@@ -1525,9 +1601,11 @@
     elements.previousDate.value = dates.previous;
     elements.currentDate.value = dates.current;
     elements.analyticsMonth.value = state.analyticsMonth || dates.current.slice(0, 7);
+    elements.mainMonth.value = elements.analyticsMonth.value;
 
     elements.previousDate.addEventListener("change", handleDateChange);
     elements.currentDate.addEventListener("change", handleDateChange);
+    elements.mainMonth.addEventListener("change", handleMainMonthChange);
     elements.analyticsMonth.addEventListener("change", handleAnalyticsMonthChange);
     elements.xlsxFile.addEventListener("change", function () {
       resetImportCheck();
