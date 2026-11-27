@@ -12,7 +12,7 @@
     <header class="page-header">
       <p class="eyebrow">Планировщик электроэнергии</p>
       <h1>Сравнение потребления</h1>
-      <p class="intro">Сопоставьте почасовые объёмы за две даты соседних месяцев.</p>
+      <p class="intro">Сравните почасовые объёмы выбранного и предыдущего месяцев.</p>
     </header>
 
     <nav class="section-nav" aria-label="Разделы планировщика">
@@ -88,84 +88,61 @@
       </section>
     </section>
 
-    <section class="panel date-panel" data-view="main" aria-labelledby="dates-title">
-      <div class="section-heading">
-        <div>
-          <p class="step-label">Шаг 1</p>
-          <h2 id="dates-title">Выберите даты</h2>
-        </div>
-        <span class="status-badge" id="save-status" aria-live="polite">Данные сохраняются автоматически</span>
-      </div>
-
-      <div class="date-grid">
-        <label class="field-group" for="previous-date">
-          <span>Предыдущий месяц</span>
-          <input id="previous-date" type="date">
-        </label>
-        <div class="date-link" aria-hidden="true">→</div>
-        <label class="field-group" for="current-date">
-          <span>Текущий месяц</span>
-          <input id="current-date" type="date">
-        </label>
-      </div>
-      <p class="form-message" id="date-error" role="alert" hidden></p>
-    </section>
-
-    <section class="panel import-panel" data-view="main" aria-labelledby="import-title">
-      <div class="section-heading compact-heading">
-        <div>
-          <p class="step-label">Импорт</p>
-          <h2 id="import-title">Загрузка предыдущего месяца</h2>
-        </div>
-        <p class="unit-note">Первый лист файла .xlsx</p>
-      </div>
-
-      <div class="import-controls">
-        <label class="field-group" for="xlsx-file">
-          <span>Файл Excel</span>
-          <input id="xlsx-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-          <small class="field-help">Только .xlsx до 5 МБ · Первый лист · До 744 строк</small>
-          <small class="field-help">Столбцы: Дата, Час, Объём (кВт*ч)</small>
-        </label>
-        <button class="primary-button" id="check-xlsx" type="button">Проверить файл</button>
-      </div>
-
-      <div class="import-result" id="import-result" aria-live="polite" hidden>
-        <p class="import-status" id="import-status"></p>
-        <dl class="import-summary">
-          <div>
-            <dt>Файл</dt>
-            <dd id="import-file-name">—</dd>
-          </div>
-          <div>
-            <dt>Месяц</dt>
-            <dd id="import-month">—</dd>
-          </div>
-          <div>
-            <dt>Корректных строк</dt>
-            <dd id="import-row-count">0</dd>
-          </div>
-          <div>
-            <dt>Дат</dt>
-            <dd id="import-date-count">0</dd>
-          </div>
-          <div>
-            <dt>Общий объём</dt>
-            <dd><span id="import-total">0</span> кВт*ч</dd>
-          </div>
-        </dl>
-        <div class="import-errors" id="import-errors" hidden>
-          <h3>Что исправить</h3>
-          <ul id="import-error-list"></ul>
-        </div>
-        <div class="import-actions">
-          <button class="secondary-button" id="load-xlsx" type="button" disabled>Загрузить объёмы</button>
-          <p class="field-help" id="import-action-help"></p>
-        </div>
-      </div>
-    </section>
-
     <div class="analytics-layout" data-view="analytics" hidden>
+      <section class="panel import-panel analytics-import-panel" aria-labelledby="import-title">
+        <div class="section-heading compact-heading">
+          <div>
+            <p class="step-label">Импорт</p>
+            <h2 id="import-title">Загрузка предыдущего месяца</h2>
+          </div>
+          <p class="unit-note">Первый лист файла .xlsx</p>
+        </div>
+
+        <div class="import-controls">
+          <label class="field-group" for="xlsx-file">
+            <span>Файл Excel</span>
+            <input id="xlsx-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+            <small class="field-help">Только .xlsx до 5 МБ · Первый лист · До 744 строк</small>
+            <small class="field-help">Столбцы: Дата, Час, Объём (кВт*ч)</small>
+          </label>
+          <button class="primary-button" id="check-xlsx" type="button">Проверить файл</button>
+        </div>
+
+        <div class="import-result" id="import-result" aria-live="polite" hidden>
+          <p class="import-status" id="import-status"></p>
+          <dl class="import-summary">
+            <div>
+              <dt>Файл</dt>
+              <dd id="import-file-name">—</dd>
+            </div>
+            <div>
+              <dt>Месяц</dt>
+              <dd id="import-month">—</dd>
+            </div>
+            <div>
+              <dt>Корректных строк</dt>
+              <dd id="import-row-count">0</dd>
+            </div>
+            <div>
+              <dt>Дат</dt>
+              <dd id="import-date-count">0</dd>
+            </div>
+            <div>
+              <dt>Общий объём</dt>
+              <dd><span id="import-total">0</span> кВт*ч</dd>
+            </div>
+          </dl>
+          <div class="import-errors" id="import-errors" hidden>
+            <h3>Что исправить</h3>
+            <ul id="import-error-list"></ul>
+          </div>
+          <div class="import-actions">
+            <button class="secondary-button" id="load-xlsx" type="button" disabled>Загрузить объёмы</button>
+            <p class="field-help" id="import-action-help"></p>
+          </div>
+        </div>
+      </section>
+
       <section class="panel month-panel" aria-labelledby="month-title">
         <div class="section-heading">
           <div>
@@ -178,6 +155,7 @@
           </label>
         </div>
 
+        <span class="status-badge" id="save-status" aria-live="polite">Данные сохраняются автоматически</span>
         <p class="unit-note month-note">Нажмите на день, чтобы открыть или скрыть 24 почасовых значения.</p>
         <dl class="month-summary" aria-label="Итоги выбранного месяца">
           <div>

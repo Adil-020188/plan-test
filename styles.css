@@ -177,6 +177,10 @@ h2 {
   min-width: 0;
 }
 
+.analytics-import-panel {
+  grid-column: 1 / -1;
+}
+
 .month-picker {
   width: min(100%, 260px);
 }
@@ -516,22 +520,6 @@ h2 {
   font-weight: 700;
 }
 
-.date-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr);
-  align-items: end;
-  gap: 14px;
-}
-
-.date-link {
-  display: grid;
-  min-height: 48px;
-  place-items: center;
-  color: var(--accent);
-  font-size: 1.5rem;
-  font-weight: 800;
-}
-
 .field-group {
   display: flex;
   min-width: 0;
@@ -572,16 +560,6 @@ input:disabled {
 input[aria-invalid="true"] {
   border-color: var(--danger);
   background: var(--danger-soft);
-}
-
-.form-message {
-  margin: 14px 0 0;
-  padding: 12px 14px;
-  border-radius: 10px;
-  color: var(--danger);
-  background: var(--danger-soft);
-  font-size: 0.9rem;
-  font-weight: 650;
 }
 
 .import-controls {
@@ -944,7 +922,6 @@ tfoot .hour-column {
     padding: 8px;
   }
 
-  .date-grid,
   .import-controls,
   .import-summary,
   .tariff-grid,
@@ -955,11 +932,6 @@ tfoot .hour-column {
   .import-actions {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .date-link {
-    min-height: 30px;
-    transform: rotate(90deg);
   }
 
   .tariff-card {

@@ -32,9 +32,6 @@
     monthDifferenceTotal: document.querySelector("#month-difference-total"),
     monthPercentTotal: document.querySelector("#month-percent-total"),
     monthCompleteDays: document.querySelector("#month-complete-days"),
-    previousDate: document.querySelector("#previous-date"),
-    currentDate: document.querySelector("#current-date"),
-    dateError: document.querySelector("#date-error"),
     previousTariffDate: document.querySelector("#previous-tariff-date"),
     currentTariffDate: document.querySelector("#current-tariff-date"),
     xlsxFile: document.querySelector("#xlsx-file"),
@@ -55,7 +52,6 @@
   };
 
   let state = readState();
-  let pairIsValid = false;
   let pendingImport = null;
 
   function showView(viewName) {
@@ -937,34 +933,6 @@
     return year + "-" + month + "-" + day;
   }
 
-  function defaultDates() {
-    const current = new Date();
-    current.setHours(12, 0, 0, 0);
-
-    const previousYear = current.getMonth() === 0 ? current.getFullYear() - 1 : current.getFullYear();
-    const previousMonth = current.getMonth() === 0 ? 11 : current.getMonth() - 1;
-    const lastPreviousDay = new Date(previousYear, previousMonth + 1, 0).getDate();
-    const previous = new Date(previousYear, previousMonth, Math.min(current.getDate(), lastPreviousDay), 12);
-
-    return {
-      previous: toDateInputValue(previous),
-      current: toDateInputValue(current)
-    };
-  }
-
-  function areConsecutiveMonths(previousValue, currentValue) {
-    const previous = parseLocalDate(previousValue);
-    const current = parseLocalDate(currentValue);
-
-    if (!previous || !current) {
-      return false;
-    }
-
-    const previousIndex = previous.getFullYear() * 12 + previous.getMonth();
-    const currentIndex = current.getFullYear() * 12 + current.getMonth();
-    return currentIndex - previousIndex === 1;
-  }
-
   function formatDate(value) {
     const date = parseLocalDate(value);
     if (!date) {
@@ -1088,26 +1056,6 @@
     element.classList.toggle("negative-value", typeof value === "number" && value < 0);
   }
 
-  function validatePair() {
-    const previous = elements.previousDate.value;
-    const current = elements.currentDate.value;
-    let message = "";
-
-    if (!isDateString(previous) || !isDateString(current)) {
-      message = "Выберите обе даты для сравнения.";
-    } else if (!areConsecutiveMonths(previous, current)) {
-      message = "Слева выберите дату из месяца, который идёт прямо перед месяцем справа.";
-    }
-
-    pairIsValid = message === "";
-    elements.dateError.hidden = pairIsValid;
-    elements.dateError.textContent = message;
-    elements.previousDate.setAttribute("aria-invalid", String(!pairIsValid));
-    elements.currentDate.setAttribute("aria-invalid", String(!pairIsValid));
-
-    return pairIsValid;
-  }
-
   function updateTariffMonthLabels(currentMonth) {
     elements.previousTariffDate.textContent = monthLabel(previousMonthValue(currentMonth));
     elements.currentTariffDate.textContent = monthLabel(currentMonth);
@@ -1124,23 +1072,8 @@
     });
   }
 
-  function handleDateChange() {
-    resetImportCheck();
-
-    if (validatePair()) {
-      state.selected = {
-        previous: elements.previousDate.value,
-        current: elements.currentDate.value
-      };
-      getRecord(state.selected.previous);
-      getRecord(state.selected.current);
-      saveState();
-    }
-
-    loadVisibleData();
-  }
-
   function handleAnalyticsMonthChange() {
+    resetImportCheck();
     state.analyticsMonth = isMonthString(elements.analyticsMonth.value)
       ? elements.analyticsMonth.value
       : null;
@@ -1151,6 +1084,7 @@
   }
 
   function handleMainMonthChange() {
+    resetImportCheck();
     state.analyticsMonth = isMonthString(elements.mainMonth.value)
       ? elements.mainMonth.value
       : null;
@@ -1539,12 +1473,7 @@
   }
 
   function expectedImportMonth() {
-    const current = parseLocalDate(elements.currentDate.value);
-    if (!current) {
-      return null;
-    }
-    const previous = new Date(current.getFullYear(), current.getMonth() - 1, 1);
-    return String(previous.getFullYear()).padStart(4, "0") + "-" + String(previous.getMonth() + 1).padStart(2, "0");
+    return previousMonthValue(elements.analyticsMonth.value);
   }
 
   function validateImportSheet(sheet) {
@@ -1635,7 +1564,9 @@
     }
 
     const expectedMonth = expectedImportMonth();
-    if (month && expectedMonth && month !== expectedMonth) {
+    if (month && !expectedMonth) {
+      errors.push("Выберите текущий месяц в разделе «Аналитика»");
+    } else if (month && month !== expectedMonth) {
       errors.push("Файл: загрузите данные за " + monthLabel(expectedMonth));
     }
 
@@ -1733,9 +1664,9 @@
     if (!expectedMonth || pendingImport.month !== expectedMonth) {
       pendingImport = null;
       elements.loadXlsx.disabled = true;
-      elements.importStatus.textContent = "Дата текущего месяца изменилась";
+      elements.importStatus.textContent = "Выбранный месяц изменился";
       elements.importStatus.classList.add("has-errors");
-      elements.importActionHelp.textContent = "Проверьте файл снова для выбранных дат.";
+      elements.importActionHelp.textContent = "Проверьте файл снова для выбранного месяца.";
       return;
     }
 
@@ -1765,15 +1696,7 @@
     elements.importStatus.classList.remove("has-errors");
     elements.importActionHelp.textContent = "Объёмы сохранены в браузере.";
 
-    if (result.dates.has(elements.previousDate.value)) {
-      loadVisibleData();
-    }
-    if (isDateString(elements.currentDate.value)) {
-      elements.analyticsMonth.value = elements.currentDate.value.slice(0, 7);
-      elements.mainMonth.value = elements.analyticsMonth.value;
-      state.analyticsMonth = elements.analyticsMonth.value;
-      saveState();
-    }
+    loadVisibleData();
     renderMonthDays();
   }
 
@@ -1783,16 +1706,13 @@
         showView(button.dataset.viewTarget);
       });
     });
-    const dates = state.selected && areConsecutiveMonths(state.selected.previous, state.selected.current)
-      ? state.selected
-      : defaultDates();
-    elements.previousDate.value = dates.previous;
-    elements.currentDate.value = dates.current;
-    elements.analyticsMonth.value = state.analyticsMonth || dates.current.slice(0, 7);
+    const currentMonth = toDateInputValue(new Date()).slice(0, 7);
+    const legacySelectedMonth = state.selected && isDateString(state.selected.current)
+      ? state.selected.current.slice(0, 7)
+      : null;
+    elements.analyticsMonth.value = state.analyticsMonth || legacySelectedMonth || currentMonth;
     elements.mainMonth.value = elements.analyticsMonth.value;
 
-    elements.previousDate.addEventListener("change", handleDateChange);
-    elements.currentDate.addEventListener("change", handleDateChange);
     elements.mainMonth.addEventListener("change", handleMainMonthChange);
     elements.analyticsMonth.addEventListener("change", handleAnalyticsMonthChange);
     elements.xlsxFile.addEventListener("change", function () {
@@ -1806,13 +1726,8 @@
       input.addEventListener("blur", handleTariffBlur);
     });
 
-    validatePair();
-    if (pairIsValid) {
-      state.selected = { previous: dates.previous, current: dates.current };
-      getRecord(dates.previous);
-      getRecord(dates.current);
-      saveState();
-    }
+    state.analyticsMonth = elements.analyticsMonth.value;
+    saveState();
     loadVisibleData();
     renderMonthDays();
     showView(state.view);
