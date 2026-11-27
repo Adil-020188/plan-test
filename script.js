@@ -766,8 +766,9 @@
 
   function createForecastResultCard(day) {
     const card = document.createElement("article");
-    const heading = document.createElement("div");
-    const title = document.createElement("h3");
+    const heading = document.createElement("button");
+    const title = document.createElement("span");
+    const action = document.createElement("span");
     const table = document.createElement("table");
     const head = document.createElement("thead");
     const headRow = document.createElement("tr");
@@ -778,8 +779,15 @@
 
     card.className = "forecast-result-card";
     heading.className = "forecast-result-card-heading";
+    heading.type = "button";
+    heading.setAttribute("aria-expanded", "true");
     title.textContent = formatDate(day.date);
+    title.className = "forecast-result-card-title";
+    action.textContent = "Скрыть 24 часа";
+    action.className = "forecast-result-card-action";
     table.className = "forecast-result-table";
+    body.id = "forecast-hours-" + day.date;
+    heading.setAttribute("aria-controls", body.id);
 
     ["Час", "Прогнозный объём, кВт*ч"].forEach(function (heading) {
       const cell = document.createElement("th");
@@ -814,8 +822,16 @@
     table.appendChild(body);
     table.appendChild(foot);
     heading.appendChild(title);
+    heading.appendChild(action);
     card.appendChild(heading);
     card.appendChild(table);
+    heading.addEventListener("click", function () {
+      const isExpanded = heading.getAttribute("aria-expanded") === "true";
+      heading.setAttribute("aria-expanded", String(!isExpanded));
+      head.hidden = isExpanded;
+      body.hidden = isExpanded;
+      action.textContent = isExpanded ? "Показать 24 часа" : "Скрыть 24 часа";
+    });
     return card;
   }
 

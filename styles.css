@@ -511,14 +511,43 @@ h2 {
 }
 
 .forecast-result-card-heading {
+  width: 100%;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 16px;
+  border: 0;
   border-bottom: 1px solid var(--line);
   background: var(--accent-soft);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.forecast-result-card h3 {
-  margin: 0;
+.forecast-result-card-heading:hover {
+  background: #dce9ee;
+}
+
+.forecast-result-card-heading:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid rgba(15, 118, 110, 0.28);
+  outline-offset: -3px;
+}
+
+.forecast-result-card-title {
   font-size: 1rem;
+  font-weight: 800;
+}
+
+.forecast-result-card-action {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: right;
 }
 
 .forecast-result-table {
