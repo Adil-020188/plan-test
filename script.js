@@ -484,8 +484,63 @@
     return clean;
   }
 
+  function emptyMonthlyTariff() {
+    return {
+      withoutVat: null,
+      vat: null
+    };
+  }
+
+  function cleanMonthlyTariff(tariff) {
+    const clean = emptyMonthlyTariff();
+
+    if (!tariff || typeof tariff !== "object") {
+      return clean;
+    }
+
+    ["withoutVat", "vat"].forEach(function (name) {
+      const value = tariff[name];
+      clean[name] = Number.isFinite(value) && value >= 0 ? value : null;
+    });
+
+    return clean;
+  }
+
+  function migrateLegacyMonthlyTariffs(target) {
+    const selectedDates = target.selected
+      ? [target.selected.previous, target.selected.current]
+      : [];
+    const remainingDates = Object.keys(target.records)
+      .filter(function (date) { return !selectedDates.includes(date); })
+      .sort();
+
+    selectedDates.concat(remainingDates).forEach(function (date) {
+      const record = target.records[date];
+      const month = date.slice(0, 7);
+      const legacyTariff = record && record.tariffs ? record.tariffs.withoutVat : null;
+
+      if (!Number.isSafeInteger(legacyTariff) || legacyTariff < 0) {
+        return;
+      }
+
+      if (!target.monthlyTariffs[month]) {
+        target.monthlyTariffs[month] = emptyMonthlyTariff();
+      }
+
+      if (target.monthlyTariffs[month].withoutVat === null) {
+        target.monthlyTariffs[month].withoutVat = legacyTariff;
+      }
+    });
+  }
+
   function readState() {
-    const initial = { selected: null, records: {}, view: "main", analyticsMonth: null };
+    const initial = {
+      selected: null,
+      records: {},
+      monthlyTariffs: {},
+      view: "main",
+      analyticsMonth: null
+    };
 
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -515,6 +570,16 @@
           }
         });
       }
+
+      if (saved.monthlyTariffs && typeof saved.monthlyTariffs === "object") {
+        Object.keys(saved.monthlyTariffs).forEach(function (month) {
+          if (isMonthString(month)) {
+            initial.monthlyTariffs[month] = cleanMonthlyTariff(saved.monthlyTariffs[month]);
+          }
+        });
+      }
+
+      migrateLegacyMonthlyTariffs(initial);
     } catch (error) {
       return initial;
     }
@@ -667,8 +732,21 @@
     return state.records[date];
   }
 
-  function getDateForPeriod(period) {
-    return period === "previous" ? elements.previousDate.value : elements.currentDate.value;
+  function getMonthForPeriod(period) {
+    const currentMonth = elements.analyticsMonth.value;
+    return period === "previous" ? previousMonthValue(currentMonth) : currentMonth;
+  }
+
+  function getMonthlyTariff(month) {
+    if (!isMonthString(month)) {
+      return emptyMonthlyTariff();
+    }
+
+    if (!state.monthlyTariffs[month]) {
+      state.monthlyTariffs[month] = emptyMonthlyTariff();
+    }
+
+    return state.monthlyTariffs[month];
   }
 
   function setDifferenceStyle(element, value) {
@@ -692,15 +770,8 @@
     elements.dateError.textContent = message;
     elements.previousDate.setAttribute("aria-invalid", String(!pairIsValid));
     elements.currentDate.setAttribute("aria-invalid", String(!pairIsValid));
-    setFormDisabled(!pairIsValid);
 
     return pairIsValid;
-  }
-
-  function setFormDisabled(disabled) {
-    elements.tariffInputs.forEach(function (input) {
-      input.disabled = disabled;
-    });
   }
 
   function updateTariffMonthLabels(currentMonth) {
@@ -712,14 +783,9 @@
     updateTariffMonthLabels(elements.analyticsMonth.value);
     clearTariffErrors();
 
-    if (!pairIsValid) {
-      elements.tariffInputs.forEach(function (input) { input.value = ""; });
-      return;
-    }
-
     elements.tariffInputs.forEach(function (input) {
-      const record = getRecord(getDateForPeriod(input.dataset.period));
-      input.value = formatMoney(record.tariffs[input.dataset.tariff]);
+      const tariff = getMonthlyTariff(getMonthForPeriod(input.dataset.period));
+      input.value = formatMoney(tariff[input.dataset.tariff]);
       input.removeAttribute("aria-invalid");
     });
   }
@@ -745,6 +811,7 @@
       ? elements.analyticsMonth.value
       : null;
     saveState();
+    loadVisibleData();
     renderMonthDays();
   }
 
@@ -774,7 +841,7 @@
     const input = event.currentTarget;
     const value = parseTariff(input.value);
     const error = document.querySelector("#" + input.id + "-error");
-    const record = getRecord(getDateForPeriod(input.dataset.period));
+    const tariff = getMonthlyTariff(getMonthForPeriod(input.dataset.period));
 
     if (value === null) {
       input.value = "";
@@ -783,7 +850,7 @@
       return;
     }
 
-    record.tariffs[input.dataset.tariff] = value;
+    tariff[input.dataset.tariff] = value;
     input.value = formatMoney(value);
     input.removeAttribute("aria-invalid");
     error.textContent = "";
