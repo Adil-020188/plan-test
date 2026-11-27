@@ -188,7 +188,8 @@ h2 {
 }
 
 .analytics-import-panel,
-.analytics-clear-panel {
+.analytics-clear-panel,
+.analytics-forecast-panel {
   grid-column: 1 / -1;
 }
 
@@ -421,6 +422,57 @@ h2 {
 .month-day-list {
   display: grid;
   gap: 10px;
+}
+
+.forecast-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.forecast-summary div {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--blue-soft);
+}
+
+.forecast-summary dt {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.forecast-summary dd {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.forecast-warning {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  color: var(--accent-dark);
+  background: var(--accent-soft);
+  font-weight: 700;
+}
+
+.forecast-warning.has-errors {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.forecast-table {
+  min-width: 980px;
+}
+
+.forecast-table td {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
 }
 
 .day-card {
@@ -994,9 +1046,14 @@ tfoot .hour-column {
   .clear-options,
   .clear-controls,
   .import-summary,
+  .forecast-summary,
   .tariff-grid,
   .tariff-card {
     grid-template-columns: 1fr;
+  }
+
+  .forecast-table-scroll + .scroll-hint {
+    display: block;
   }
 
   .import-actions {

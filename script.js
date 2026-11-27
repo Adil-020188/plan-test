@@ -32,6 +32,14 @@
     monthDifferenceTotal: document.querySelector("#month-difference-total"),
     monthPercentTotal: document.querySelector("#month-percent-total"),
     monthCompleteDays: document.querySelector("#month-complete-days"),
+    forecastPreviousMonth: document.querySelector("#forecast-previous-month"),
+    forecastCurrentMonth: document.querySelector("#forecast-current-month"),
+    forecastLastDate: document.querySelector("#forecast-last-date"),
+    forecastFirstDate: document.querySelector("#forecast-first-date"),
+    forecastSecondDate: document.querySelector("#forecast-second-date"),
+    forecastFilledHours: document.querySelector("#forecast-filled-hours"),
+    forecastWarning: document.querySelector("#forecast-warning"),
+    forecastAnalysisBody: document.querySelector("#forecast-analysis-body"),
     previousTariffDate: document.querySelector("#previous-tariff-date"),
     currentTariffDate: document.querySelector("#current-tariff-date"),
     xlsxFile: document.querySelector("#xlsx-file"),
@@ -395,6 +403,8 @@
   }
 
   function renderMonthSummary(currentMonth) {
+    renderForecastAnalysis(currentMonth);
+
     if (!isMonthString(currentMonth)) {
       elements.monthPreviousTotal.textContent = "—";
       elements.monthCurrentTotal.textContent = "—";
@@ -514,6 +524,194 @@
 
     const value = state.records[date].volumes[hour];
     return isValidVolume(value) ? value : null;
+  }
+
+  function addDaysToDateString(value, dayCount) {
+    const date = parseLocalDate(value);
+    if (!date) {
+      return null;
+    }
+
+    date.setDate(date.getDate() + dayCount);
+    return toDateInputValue(date);
+  }
+
+  function findLatestFactDate(month) {
+    if (!isMonthString(month)) {
+      return null;
+    }
+
+    for (let day = daysInMonth(month); day >= 1; day -= 1) {
+      const date = dateForMonthDay(month, day);
+      if (summarizeDate(date).hasData) {
+        return date;
+      }
+    }
+
+    return null;
+  }
+
+  function analyzeForecastSource(currentMonth, latestDate) {
+    const previousMonth = previousMonthValue(currentMonth);
+    const latestDay = Number(latestDate.slice(8, 10));
+    const previousDayCount = daysInMonth(previousMonth);
+    const hours = Array.from({ length: HOUR_COUNT }, function () {
+      return {
+        pairCount: 0,
+        previousSum: 0,
+        currentSum: 0,
+        currentCount: 0
+      };
+    });
+    let previousFilled = 0;
+    let currentFilled = 0;
+
+    for (let day = 1; day <= latestDay; day += 1) {
+      const currentDate = dateForMonthDay(currentMonth, day);
+      const previousDate = day <= previousDayCount ? dateForMonthDay(previousMonth, day) : null;
+
+      for (let hour = 0; hour < HOUR_COUNT; hour += 1) {
+        const current = getStoredVolume(currentDate, hour);
+        const previous = getStoredVolume(previousDate, hour);
+
+        if (current !== null) {
+          currentFilled += 1;
+          hours[hour].currentCount += 1;
+        }
+        if (previous !== null) {
+          previousFilled += 1;
+        }
+        if (current !== null && previous !== null) {
+          hours[hour].pairCount += 1;
+          hours[hour].previousSum += previous;
+          hours[hour].currentSum += current;
+        }
+      }
+    }
+
+    return {
+      previousFilled: previousFilled,
+      currentFilled: currentFilled,
+      hours: hours
+    };
+  }
+
+  function hourInterval(hour) {
+    const nextHour = (hour + 1) % HOUR_COUNT;
+    return String(hour).padStart(2, "0") + ":00–" + String(nextHour).padStart(2, "0") + ":00";
+  }
+
+  function appendForecastCell(row, value, className) {
+    const cell = document.createElement("td");
+    cell.textContent = value;
+    if (className) {
+      cell.className = className;
+    }
+    row.appendChild(cell);
+    return cell;
+  }
+
+  function renderForecastRows(analysis) {
+    const fragment = document.createDocumentFragment();
+    const empty = !analysis;
+
+    for (let hour = 0; hour < HOUR_COUNT; hour += 1) {
+      const row = document.createElement("tr");
+      const hourCell = document.createElement("th");
+      const source = empty ? null : analysis.hours[hour];
+      const hasPairs = source && source.pairCount > 0;
+      const difference = hasPairs ? source.currentSum - source.previousSum : null;
+      const coefficient = hasPairs && source.previousSum > 0
+        ? source.currentSum / source.previousSum
+        : null;
+      const percent = coefficient === null ? null : (coefficient - 1) * 100;
+
+      hourCell.className = "hour-column";
+      hourCell.scope = "row";
+      hourCell.textContent = hourInterval(hour);
+      row.appendChild(hourCell);
+      appendForecastCell(row, source ? formatNumber(source.pairCount, 0) : "—");
+      appendForecastCell(row, hasPairs ? formatNumber(source.previousSum, DISPLAY_VOLUME_DECIMALS) : "—");
+      appendForecastCell(row, hasPairs ? formatNumber(source.currentSum, DISPLAY_VOLUME_DECIMALS) : "—");
+      const differenceCell = appendForecastCell(
+        row,
+        difference === null ? "—" : formatSignedNumber(difference, DISPLAY_VOLUME_DECIMALS)
+      );
+      const percentCell = appendForecastCell(
+        row,
+        percent === null ? "—" : formatSignedNumber(percent, 2) + "%"
+      );
+      appendForecastCell(row, coefficient === null ? "—" : formatNumber(coefficient, 4));
+      setDifferenceStyle(differenceCell, difference);
+      setDifferenceStyle(percentCell, percent);
+      fragment.appendChild(row);
+    }
+
+    elements.forecastAnalysisBody.replaceChildren(fragment);
+  }
+
+  function renderForecastAnalysis(currentMonth) {
+    const previousMonth = previousMonthValue(currentMonth);
+    elements.forecastPreviousMonth.textContent = monthLabel(previousMonth);
+    elements.forecastCurrentMonth.textContent = monthLabel(currentMonth);
+    elements.forecastLastDate.textContent = "—";
+    elements.forecastFirstDate.textContent = "—";
+    elements.forecastSecondDate.textContent = "—";
+    elements.forecastFilledHours.textContent = "—";
+    elements.forecastWarning.classList.remove("has-errors");
+
+    if (!isMonthString(currentMonth)) {
+      elements.forecastWarning.textContent = "Выберите текущий месяц для анализа.";
+      elements.forecastWarning.classList.add("has-errors");
+      renderForecastRows(null);
+      return;
+    }
+
+    const latestDate = findLatestFactDate(currentMonth);
+    if (!latestDate) {
+      elements.forecastWarning.textContent = "В текущем месяце нет сохранённых почасовых объёмов.";
+      elements.forecastWarning.classList.add("has-errors");
+      renderForecastRows(null);
+      return;
+    }
+
+    const analysis = analyzeForecastSource(currentMonth, latestDate);
+    const firstForecastDate = addDaysToDateString(latestDate, 2);
+    const secondForecastDate = addDaysToDateString(latestDate, 3);
+    const hoursWithoutPairs = [];
+    const hoursWithoutCurrentData = [];
+
+    analysis.hours.forEach(function (hour, index) {
+      if (hour.pairCount === 0) {
+        hoursWithoutPairs.push(hourInterval(index));
+      }
+      if (hour.currentCount === 0) {
+        hoursWithoutCurrentData.push(hourInterval(index));
+      }
+    });
+
+    elements.forecastLastDate.textContent = formatDate(latestDate);
+    elements.forecastFirstDate.textContent = formatDate(firstForecastDate);
+    elements.forecastSecondDate.textContent = formatDate(secondForecastDate);
+    elements.forecastFilledHours.textContent = "Текущий: " + analysis.currentFilled
+      + " · предыдущий: " + analysis.previousFilled;
+
+    const warnings = [];
+    if (hoursWithoutPairs.length > 0) {
+      warnings.push("нет сопоставимых пар: " + hoursWithoutPairs.join(", "));
+    }
+    if (hoursWithoutCurrentData.length > 0) {
+      warnings.push("нет данных текущего месяца: " + hoursWithoutCurrentData.join(", "));
+    }
+
+    if (warnings.length > 0) {
+      elements.forecastWarning.textContent = "Есть пропуски — " + warnings.join("; ") + ".";
+      elements.forecastWarning.classList.add("has-errors");
+    } else {
+      elements.forecastWarning.textContent = "Почасовой анализ выполнен. Данные есть для всех 24 часов.";
+    }
+
+    renderForecastRows(analysis);
   }
 
   function createMonthVolumeCell(recordDate, currentDate, previousDate, hour, time, period) {

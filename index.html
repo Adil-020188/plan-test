@@ -307,6 +307,63 @@
           </fieldset>
         </div>
       </section>
+
+      <section class="panel forecast-panel analytics-forecast-panel" aria-labelledby="forecast-title">
+        <div class="section-heading compact-heading">
+          <div>
+            <p class="step-label">Планирование</p>
+            <h2 id="forecast-title">ПРОГНОЗ</h2>
+          </div>
+          <p class="unit-note">Анализ фактических почасовых объёмов</p>
+        </div>
+
+        <dl class="forecast-summary" aria-label="Исходные данные прогноза">
+          <div>
+            <dt>Предыдущий месяц</dt>
+            <dd id="forecast-previous-month">—</dd>
+          </div>
+          <div>
+            <dt>Текущий месяц</dt>
+            <dd id="forecast-current-month">—</dd>
+          </div>
+          <div>
+            <dt>Последний факт</dt>
+            <dd id="forecast-last-date">—</dd>
+          </div>
+          <div>
+            <dt>Первая дата прогноза</dt>
+            <dd id="forecast-first-date">—</dd>
+          </div>
+          <div>
+            <dt>Вторая дата прогноза</dt>
+            <dd id="forecast-second-date">—</dd>
+          </div>
+          <div>
+            <dt>Заполнено часов</dt>
+            <dd id="forecast-filled-hours">—</dd>
+          </div>
+        </dl>
+
+        <p class="forecast-warning" id="forecast-warning" role="status" aria-live="polite"></p>
+
+        <div class="table-scroll forecast-table-scroll" tabindex="0" aria-label="Почасовое сравнение для прогноза">
+          <table class="forecast-table">
+            <thead>
+              <tr>
+                <th class="hour-column" scope="col">Час</th>
+                <th scope="col">Пар данных</th>
+                <th scope="col">Предыдущий, кВт*ч</th>
+                <th scope="col">Текущий, кВт*ч</th>
+                <th scope="col">Разница, кВт*ч</th>
+                <th scope="col">Изменение</th>
+                <th scope="col">Коэффициент</th>
+              </tr>
+            </thead>
+            <tbody id="forecast-analysis-body"></tbody>
+          </table>
+        </div>
+        <p class="scroll-hint">Проведите по таблице влево, чтобы увидеть все столбцы.</p>
+      </section>
     </div>
   </main>
 
