@@ -6,7 +6,7 @@
   const DISPLAY_VOLUME_DECIMALS = 6;
   const MAX_HOURLY_VOLUME = Number.MAX_VALUE / (HOUR_COUNT * 2);
   const MAX_XLSX_SIZE = 5 * 1024 * 1024;
-  const MAX_IMPORT_ROWS = 31 * HOUR_COUNT;
+  const MAX_IMPORT_ROWS = 62 * HOUR_COUNT;
   const DEFAULT_VAT = 16;
   const MAX_RATE_VALUE = Number.MAX_SAFE_INTEGER;
   const MAX_RATE_INPUT_LENGTH = 30;
@@ -44,6 +44,7 @@
     importRowCount: document.querySelector("#import-row-count"),
     importDateCount: document.querySelector("#import-date-count"),
     importTotal: document.querySelector("#import-total"),
+    importReplacementCount: document.querySelector("#import-replacement-count"),
     importErrors: document.querySelector("#import-errors"),
     importErrorList: document.querySelector("#import-error-list"),
     importActionHelp: document.querySelector("#import-action-help"),
@@ -1073,7 +1074,6 @@
   }
 
   function handleAnalyticsMonthChange() {
-    resetImportCheck();
     state.analyticsMonth = isMonthString(elements.analyticsMonth.value)
       ? elements.analyticsMonth.value
       : null;
@@ -1084,7 +1084,6 @@
   }
 
   function handleMainMonthChange() {
-    resetImportCheck();
     state.analyticsMonth = isMonthString(elements.mainMonth.value)
       ? elements.mainMonth.value
       : null;
@@ -1467,15 +1466,6 @@
       .format(new Date(parts[0], parts[1] - 1, 1));
   }
 
-  function shortMonthLabel(monthKey) {
-    const parts = String(monthKey || "").split("-");
-    return parts.length === 2 ? parts[1] + "." + parts[0] : "—";
-  }
-
-  function expectedImportMonth() {
-    return previousMonthValue(elements.analyticsMonth.value);
-  }
-
   function validateImportSheet(sheet) {
     const errors = [];
     const records = [];
@@ -1486,7 +1476,7 @@
 
     if (!headerRow) {
       errors.push("Строка 1: добавьте заголовки Дата, Час, Объём (кВт*ч)");
-      return { errors: errors, records: records, dates: dates, month: null, total: 0 };
+      return { errors: errors, records: records, dates: dates, months: [], total: 0, replacementCount: 0 };
     }
 
     const columns = findImportColumns(headerRow.cells);
@@ -1500,7 +1490,7 @@
       errors.push("Строка 1: не найден столбец Объём (кВт*ч)");
     }
     if (errors.length) {
-      return { errors: errors, records: records, dates: dates, month: null, total: 0 };
+      return { errors: errors, records: records, dates: dates, months: [], total: 0, replacementCount: 0 };
     }
 
     const dataRows = sheet.rows.filter(function (row) {
@@ -1558,24 +1548,18 @@
       records.push({ date: date, hour: hour, volume: volume, rowNumber: row.rowNumber });
     });
 
-    let month = months.size === 1 ? Array.from(months)[0] : null;
-    if (months.size > 1) {
-      errors.push("Файл: должны быть данные одного месяца");
-    }
-
-    const expectedMonth = expectedImportMonth();
-    if (month && !expectedMonth) {
-      errors.push("Выберите текущий месяц в разделе «Аналитика»");
-    } else if (month && month !== expectedMonth) {
-      errors.push("Файл: загрузите данные за " + monthLabel(expectedMonth));
-    }
+    const monthList = Array.from(months).sort();
+    const replacementCount = records.filter(function (record) {
+      return getStoredVolume(record.date, record.hour) !== null;
+    }).length;
 
     return {
       errors: errors,
       records: records,
       dates: dates,
-      month: month,
-      total: records.reduce(function (sum, record) { return sum + record.volume; }, 0)
+      months: monthList,
+      total: records.reduce(function (sum, record) { return sum + record.volume; }, 0),
+      replacementCount: replacementCount
     };
   }
 
@@ -1588,10 +1572,13 @@
       : "Файл проверен, данные не загружены";
     elements.importStatus.classList.toggle("has-errors", hasErrors);
     elements.importFileName.textContent = fileName || "—";
-    elements.importMonth.textContent = result.month ? monthLabel(result.month) : "—";
+    elements.importMonth.textContent = result.months.length
+      ? result.months.map(monthLabel).join(", ")
+      : "—";
     elements.importRowCount.textContent = String(result.records.length);
     elements.importDateCount.textContent = String(result.dates.size);
     elements.importTotal.textContent = formatNumber(result.total, DISPLAY_VOLUME_DECIMALS);
+    elements.importReplacementCount.textContent = String(result.replacementCount);
     elements.importErrors.hidden = !hasErrors;
     elements.importErrorList.replaceChildren();
 
@@ -1618,8 +1605,9 @@
       errors: [message],
       records: [],
       dates: new Set(),
-      month: null,
-      total: 0
+      months: [],
+      total: 0,
+      replacementCount: 0
     };
   }
 
@@ -1660,18 +1648,9 @@
       return;
     }
 
-    const expectedMonth = expectedImportMonth();
-    if (!expectedMonth || pendingImport.month !== expectedMonth) {
-      pendingImport = null;
-      elements.loadXlsx.disabled = true;
-      elements.importStatus.textContent = "Выбранный месяц изменился";
-      elements.importStatus.classList.add("has-errors");
-      elements.importActionHelp.textContent = "Проверьте файл снова для выбранного месяца.";
-      return;
-    }
-
     const result = pendingImport;
     const nextState = JSON.parse(JSON.stringify(state));
+    const latestMonth = result.months[result.months.length - 1];
 
     result.records.forEach(function (record) {
       if (!nextState.records[record.date]) {
@@ -1681,6 +1660,7 @@
       }
       nextState.records[record.date].volumes[record.hour] = record.volume;
     });
+    nextState.analyticsMonth = latestMonth;
 
     if (!saveState(nextState)) {
       elements.importStatus.textContent = "Не удалось сохранить объёмы";
@@ -1692,10 +1672,13 @@
     state = nextState;
     pendingImport = null;
     elements.loadXlsx.disabled = true;
-    elements.importStatus.textContent = "Загружено: " + result.records.length + " строк за " + shortMonthLabel(result.month);
+    elements.importStatus.textContent = "Загружено: " + result.records.length + " строк за "
+      + result.months.map(monthLabel).join(", ");
     elements.importStatus.classList.remove("has-errors");
     elements.importActionHelp.textContent = "Объёмы сохранены в браузере.";
 
+    elements.analyticsMonth.value = latestMonth;
+    elements.mainMonth.value = latestMonth;
     loadVisibleData();
     renderMonthDays();
   }

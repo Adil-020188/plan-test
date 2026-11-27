@@ -93,7 +93,7 @@
         <div class="section-heading compact-heading">
           <div>
             <p class="step-label">Импорт</p>
-            <h2 id="import-title">Загрузка предыдущего месяца</h2>
+            <h2 id="import-title">Импорт почасовых объёмов</h2>
           </div>
           <p class="unit-note">Первый лист файла .xlsx</p>
         </div>
@@ -102,8 +102,9 @@
           <label class="field-group" for="xlsx-file">
             <span>Файл Excel</span>
             <input id="xlsx-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
-            <small class="field-help">Только .xlsx до 5 МБ · Первый лист · До 744 строк</small>
+            <small class="field-help">Только .xlsx до 5 МБ · Первый лист · До 1 488 строк</small>
             <small class="field-help">Столбцы: Дата, Час, Объём (кВт*ч)</small>
+            <small class="field-help">Месяц определяется по дате каждой строки</small>
           </label>
           <button class="primary-button" id="check-xlsx" type="button">Проверить файл</button>
         </div>
@@ -116,7 +117,7 @@
               <dd id="import-file-name">—</dd>
             </div>
             <div>
-              <dt>Месяц</dt>
+              <dt>Найденные месяцы</dt>
               <dd id="import-month">—</dd>
             </div>
             <div>
@@ -130,6 +131,10 @@
             <div>
               <dt>Общий объём</dt>
               <dd><span id="import-total">0</span> кВт*ч</dd>
+            </div>
+            <div>
+              <dt>Будет заменено</dt>
+              <dd><span id="import-replacement-count">0</span> ячеек</dd>
             </div>
           </dl>
           <div class="import-errors" id="import-errors" hidden>
