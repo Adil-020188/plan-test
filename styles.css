@@ -757,6 +757,14 @@ tfoot .hour-column {
     padding: 16px;
   }
 
+  .tariff-card {
+    padding: 14px;
+  }
+
+  .tariff-results dd {
+    font-size: 0.9rem;
+  }
+
   .section-nav {
     gap: 4px;
     padding: 4px;
