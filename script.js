@@ -39,7 +39,8 @@
     importErrors: document.querySelector("#import-errors"),
     importErrorList: document.querySelector("#import-error-list"),
     importActionHelp: document.querySelector("#import-action-help"),
-    tariffInputs: Array.from(document.querySelectorAll(".tariff-input"))
+    tariffInputs: Array.from(document.querySelectorAll(".tariff-input")),
+    tariffResults: Array.from(document.querySelectorAll(".tariff-results"))
   };
 
   let state = readState();
@@ -147,6 +148,7 @@
       elements.monthCompleteDays.textContent = "—";
       setDifferenceStyle(elements.monthDifferenceTotal, null);
       setDifferenceStyle(elements.monthPercentTotal, null);
+      renderTariffResults(currentMonth, null);
       return;
     }
 
@@ -160,6 +162,53 @@
     elements.monthCompleteDays.textContent = summary.completeDays + " из " + summary.dayCount;
     setDifferenceStyle(elements.monthDifferenceTotal, difference);
     setDifferenceStyle(elements.monthPercentTotal, percent);
+    renderTariffResults(currentMonth, summary);
+  }
+
+  function calculateTariffAmounts(volume, tariff) {
+    if (!Number.isFinite(volume) || volume < 0 || !isValidRate(tariff.withoutVat) || !isValidRate(tariff.vat)) {
+      return null;
+    }
+
+    const withoutVat = volume * tariff.withoutVat;
+    const vat = withoutVat * tariff.vat / 100;
+    const withVat = withoutVat + vat;
+
+    if (![withoutVat, vat, withVat].every(Number.isFinite)) {
+      return null;
+    }
+
+    return {
+      withoutVat: withoutVat,
+      vat: vat,
+      withVat: withVat
+    };
+  }
+
+  function renderTariffResults(currentMonth, summary) {
+    elements.tariffResults.forEach(function (results) {
+      const period = results.dataset.period;
+      const volumeElement = results.querySelector('[data-tariff-result="volume"]');
+      const withoutVatElement = results.querySelector('[data-tariff-result="without-vat"]');
+      const vatElement = results.querySelector('[data-tariff-result="vat"]');
+      const withVatElement = results.querySelector('[data-tariff-result="with-vat"]');
+
+      if (!summary || !isMonthString(currentMonth)) {
+        volumeElement.textContent = "—";
+        withoutVatElement.textContent = "—";
+        vatElement.textContent = "—";
+        withVatElement.textContent = "—";
+        return;
+      }
+
+      const volume = period === "previous" ? summary.previousTotal : summary.currentTotal;
+      const tariff = getMonthlyTariff(period === "previous" ? previousMonthValue(currentMonth) : currentMonth);
+      const amounts = calculateTariffAmounts(volume, tariff);
+      volumeElement.textContent = formatNumber(volume, DISPLAY_VOLUME_DECIMALS);
+      withoutVatElement.textContent = amounts ? formatMoneyAmount(amounts.withoutVat) : "—";
+      vatElement.textContent = amounts ? formatMoneyAmount(amounts.vat) : "—";
+      withVatElement.textContent = amounts ? formatMoneyAmount(amounts.withVat) : "—";
+    });
   }
 
   function createDayMetric(label, field) {
@@ -700,6 +749,19 @@
     }).format(value);
   }
 
+  function formatMoneyAmount(value) {
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+      return "—";
+    }
+
+    const normalized = Object.is(value, -0) ? 0 : value;
+    return new Intl.NumberFormat("ru-RU", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+      useGrouping: true
+    }).format(normalized).replace(/[\u00a0\u202f]/g, " ") + " тенге";
+  }
+
   function isValidVolume(value) {
     return typeof value === "number"
       && Number.isFinite(value)
@@ -877,6 +939,7 @@
     input.removeAttribute("aria-invalid");
     error.textContent = "";
     saveState();
+    renderMonthSummary(elements.analyticsMonth.value);
   }
 
   function readUint32(view, offset) {

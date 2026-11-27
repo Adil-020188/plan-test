@@ -159,6 +159,24 @@
               <input id="previous-vat" class="tariff-input" type="text" inputmode="decimal" autocomplete="off" placeholder="16" data-period="previous" data-tariff="vat">
               <small class="input-error" id="previous-vat-error"></small>
             </label>
+            <dl class="tariff-results" data-period="previous" aria-label="Расчёт предыдущего месяца">
+              <div>
+                <dt>Месячный объём</dt>
+                <dd><span data-tariff-result="volume">0</span> кВт*ч</dd>
+              </div>
+              <div>
+                <dt>Сумма без НДС</dt>
+                <dd data-tariff-result="without-vat">—</dd>
+              </div>
+              <div>
+                <dt>Сумма НДС</dt>
+                <dd data-tariff-result="vat">—</dd>
+              </div>
+              <div>
+                <dt>Сумма с НДС</dt>
+                <dd data-tariff-result="with-vat">—</dd>
+              </div>
+            </dl>
           </fieldset>
 
           <fieldset class="tariff-card" id="current-tariffs">
@@ -174,6 +192,24 @@
               <input id="current-vat" class="tariff-input" type="text" inputmode="decimal" autocomplete="off" placeholder="16" data-period="current" data-tariff="vat">
               <small class="input-error" id="current-vat-error"></small>
             </label>
+            <dl class="tariff-results" data-period="current" aria-label="Расчёт текущего месяца">
+              <div>
+                <dt>Месячный объём</dt>
+                <dd><span data-tariff-result="volume">0</span> кВт*ч</dd>
+              </div>
+              <div>
+                <dt>Сумма без НДС</dt>
+                <dd data-tariff-result="without-vat">—</dd>
+              </div>
+              <div>
+                <dt>Сумма НДС</dt>
+                <dd data-tariff-result="vat">—</dd>
+              </div>
+              <div>
+                <dt>Сумма с НДС</dt>
+                <dd data-tariff-result="with-vat">—</dd>
+              </div>
+            </dl>
           </fieldset>
         </div>
       </section>

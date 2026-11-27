@@ -638,6 +638,32 @@ tfoot .hour-column {
   font-weight: 650;
 }
 
+.tariff-results {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.tariff-results div {
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--blue-soft);
+}
+
+.tariff-results dt {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.tariff-results dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
 .input-error {
   min-height: 18px;
   color: var(--danger);
