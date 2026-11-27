@@ -148,6 +148,26 @@
         </div>
       </section>
 
+      <section class="panel clear-panel analytics-clear-panel" aria-labelledby="clear-date-title">
+        <div class="section-heading compact-heading">
+          <div>
+            <p class="step-label">Очистка</p>
+            <h2 id="clear-date-title">Очистить конкретную дату</h2>
+          </div>
+          <p class="unit-note">Тарифы и другие даты сохранятся</p>
+        </div>
+
+        <div class="clear-controls">
+          <label class="field-group" for="clear-date">
+            <span>Дата</span>
+            <input id="clear-date" type="date">
+            <small class="input-error" id="clear-date-error"></small>
+          </label>
+          <button class="danger-button" id="clear-date-button" type="button">Очистить дату</button>
+        </div>
+        <p class="clear-message" id="clear-date-message" role="status" aria-live="polite" hidden></p>
+      </section>
+
       <section class="panel month-panel" aria-labelledby="month-title">
         <div class="section-heading">
           <div>

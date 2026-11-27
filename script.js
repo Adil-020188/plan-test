@@ -48,6 +48,10 @@
     importErrors: document.querySelector("#import-errors"),
     importErrorList: document.querySelector("#import-error-list"),
     importActionHelp: document.querySelector("#import-action-help"),
+    clearDate: document.querySelector("#clear-date"),
+    clearDateError: document.querySelector("#clear-date-error"),
+    clearDateButton: document.querySelector("#clear-date-button"),
+    clearDateMessage: document.querySelector("#clear-date-message"),
     tariffInputs: Array.from(document.querySelectorAll(".tariff-input")),
     tariffResults: Array.from(document.querySelectorAll(".tariff-results"))
   };
@@ -1093,6 +1097,72 @@
     renderMonthDays();
   }
 
+  function setClearDateMessage(message, hasErrors) {
+    elements.clearDateMessage.hidden = !message;
+    elements.clearDateMessage.textContent = message;
+    elements.clearDateMessage.classList.toggle("has-errors", Boolean(hasErrors));
+  }
+
+  function countStoredVolumes(date) {
+    const record = state.records[date];
+    if (!record || !Array.isArray(record.volumes)) {
+      return 0;
+    }
+
+    return record.volumes.slice(0, HOUR_COUNT).filter(isValidVolume).length;
+  }
+
+  function handleClearDateInput() {
+    elements.clearDateError.textContent = "";
+    elements.clearDate.removeAttribute("aria-invalid");
+    setClearDateMessage("", false);
+  }
+
+  function handleClearDate() {
+    const date = elements.clearDate.value;
+    elements.clearDateError.textContent = "";
+    elements.clearDate.removeAttribute("aria-invalid");
+    setClearDateMessage("", false);
+
+    if (!isDateString(date)) {
+      elements.clearDateError.textContent = "Выберите существующую дату.";
+      elements.clearDate.setAttribute("aria-invalid", "true");
+      elements.clearDate.focus();
+      return;
+    }
+
+    const filledCount = countStoredVolumes(date);
+    if (filledCount === 0) {
+      setClearDateMessage("За " + formatDate(date) + " нет почасовых данных.", false);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Очистить " + filledCount + " почасовых значений за " + formatDate(date)
+      + "? Тарифы и другие даты останутся без изменений."
+    );
+    if (!confirmed) {
+      setClearDateMessage("Очистка отменена. Данные не изменены.", false);
+      return;
+    }
+
+    const nextState = JSON.parse(JSON.stringify(state));
+    nextState.records[date] = cleanRecord(nextState.records[date]);
+    nextState.records[date].volumes = Array(HOUR_COUNT).fill(null);
+
+    if (!saveState(nextState)) {
+      setClearDateMessage("Не удалось сохранить очистку. Повторите попытку.", true);
+      return;
+    }
+
+    state = nextState;
+    setClearDateMessage(
+      "Очищено: " + filledCount + " почасовых значений за " + formatDate(date) + ".",
+      false
+    );
+    renderMonthDays();
+  }
+
   function clearTariffErrors() {
     elements.tariffInputs.forEach(function (input) {
       const error = document.querySelector("#" + input.id + "-error");
@@ -1703,6 +1773,8 @@
     });
     elements.checkXlsx.addEventListener("click", handleXlsxCheck);
     elements.loadXlsx.addEventListener("click", handleXlsxLoad);
+    elements.clearDate.addEventListener("input", handleClearDateInput);
+    elements.clearDateButton.addEventListener("click", handleClearDate);
     elements.tariffInputs.forEach(function (input) {
       input.addEventListener("focus", handleTariffFocus);
       input.addEventListener("input", handleTariffInput);
