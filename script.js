@@ -44,16 +44,18 @@
   let pendingImport = null;
 
   function showView(viewName) {
+    const safeView = viewName === "analytics" ? "analytics" : "main";
     elements.views.forEach(function (view) {
-      view.hidden = view.dataset.view !== viewName;
+      view.hidden = view.dataset.view !== safeView;
     });
 
     elements.viewButtons.forEach(function (button) {
-      const isActive = button.dataset.viewTarget === viewName;
+      const isActive = button.dataset.viewTarget === safeView;
       button.classList.toggle("is-active", isActive);
       button.setAttribute("aria-pressed", String(isActive));
     });
-
+    state.view = safeView;
+    saveState();
   }
 
   function isMonthString(value) {
@@ -235,6 +237,7 @@
   }
 
   function createHourlyEditor(currentDate, previousDate) {
+    const editor = document.createElement("div");
     const scroll = document.createElement("div");
     const table = document.createElement("table");
     const head = document.createElement("thead");
@@ -299,7 +302,12 @@
     table.appendChild(head);
     table.appendChild(body);
     scroll.appendChild(table);
-    return scroll;
+    const hint = document.createElement("p");
+    hint.className = "scroll-hint";
+    hint.textContent = "Проведите по таблице влево, чтобы увидеть все столбцы.";
+    editor.appendChild(scroll);
+    editor.appendChild(hint);
+    return editor;
   }
 
   function updateHourlyRow(row, currentDate, previousDate, hour) {
@@ -476,7 +484,7 @@
   }
 
   function readState() {
-    const initial = { selected: null, records: {} };
+    const initial = { selected: null, records: {}, view: "main", analyticsMonth: null };
 
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -489,6 +497,14 @@
           previous: saved.selected.previous,
           current: saved.selected.current
         };
+      }
+
+      if (saved.view === "main" || saved.view === "analytics") {
+        initial.view = saved.view;
+      }
+
+      if (isMonthString(saved.analyticsMonth)) {
+        initial.analyticsMonth = saved.analyticsMonth;
       }
 
       if (saved.records && typeof saved.records === "object") {
@@ -723,6 +739,14 @@
     }
 
     loadVisibleData();
+  }
+
+  function handleAnalyticsMonthChange() {
+    state.analyticsMonth = isMonthString(elements.analyticsMonth.value)
+      ? elements.analyticsMonth.value
+      : null;
+    saveState();
+    renderMonthDays();
   }
 
   function clearTariffErrors() {
@@ -1332,6 +1356,8 @@
     }
     if (isDateString(elements.currentDate.value)) {
       elements.analyticsMonth.value = elements.currentDate.value.slice(0, 7);
+      state.analyticsMonth = elements.analyticsMonth.value;
+      saveState();
     }
     renderMonthDays();
   }
@@ -1342,18 +1368,16 @@
         showView(button.dataset.viewTarget);
       });
     });
-    showView("main");
-
     const dates = state.selected && areConsecutiveMonths(state.selected.previous, state.selected.current)
       ? state.selected
       : defaultDates();
     elements.previousDate.value = dates.previous;
     elements.currentDate.value = dates.current;
-    elements.analyticsMonth.value = dates.current.slice(0, 7);
+    elements.analyticsMonth.value = state.analyticsMonth || dates.current.slice(0, 7);
 
     elements.previousDate.addEventListener("change", handleDateChange);
     elements.currentDate.addEventListener("change", handleDateChange);
-    elements.analyticsMonth.addEventListener("change", renderMonthDays);
+    elements.analyticsMonth.addEventListener("change", handleAnalyticsMonthChange);
     elements.xlsxFile.addEventListener("change", function () {
       resetImportCheck();
     });
@@ -1374,6 +1398,7 @@
     }
     loadVisibleData();
     renderMonthDays();
+    showView(state.view);
   }
 
   initialize();

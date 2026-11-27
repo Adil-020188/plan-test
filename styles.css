@@ -653,6 +653,33 @@ tfoot .hour-column {
     gap: 10px;
   }
 
+  .month-picker {
+    width: 100%;
+  }
+
+  .day-summary {
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .day-summary-values {
+    grid-column: 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 14px;
+  }
+
+  .month-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .month-summary div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .day-details {
+    padding: 8px;
+  }
+
   .date-grid,
   .import-controls,
   .import-summary,
@@ -693,29 +720,6 @@ tfoot .hour-column {
     padding: 16px;
   }
 
-  .month-picker {
-    width: 100%;
-  }
-
-  .day-summary {
-    grid-template-columns: 20px minmax(0, 1fr);
-    gap: 12px;
-  }
-
-  .day-summary-values {
-    grid-column: 2;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px 14px;
-  }
-
-  .month-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .day-details {
-    padding: 8px;
-  }
-
   .section-nav {
     gap: 4px;
     padding: 4px;
@@ -723,10 +727,6 @@ tfoot .hour-column {
 
   .section-nav-button {
     padding-inline: 10px;
-  }
-
-  .month-summary {
-    grid-template-columns: 1fr;
   }
 
   h1 {
