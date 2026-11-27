@@ -1144,6 +1144,17 @@ tfoot .hour-column {
     grid-template-columns: 1fr;
   }
 
+  .forecast-result-card-heading {
+    padding: 14px;
+  }
+
+  .forecast-result-table th,
+  .forecast-result-table td {
+    height: 52px;
+    padding: 6px 8px;
+    font-size: 0.84rem;
+  }
+
   .tariff-card {
     gap: 14px;
   }

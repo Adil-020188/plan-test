@@ -627,6 +627,9 @@
         clearForecastResult("Нажмите «Рассчитать прогноз», чтобы получить почасовые объёмы на двое суток.", false);
       }
     }
+    if (forecastPreview) {
+      updateForecastResultStatus(forecastPreview);
+    }
     elements.forecastLastDate.textContent = "—";
     elements.forecastFirstDate.textContent = "—";
     elements.forecastSecondDate.textContent = "—";
@@ -667,6 +670,56 @@
     const previousMonth = previousMonthValue(month);
     const day = date.getDate();
     return day <= daysInMonth(previousMonth) ? dateForMonthDay(previousMonth, day) : null;
+  }
+
+  function buildForecastSourceSignature(currentMonth, latestDate, forecastDates) {
+    if (!isMonthString(currentMonth) || !isDateString(latestDate)) {
+      return null;
+    }
+
+    const previousMonth = previousMonthValue(currentMonth);
+    const previousDayCount = daysInMonth(previousMonth);
+    const latestDay = Number(latestDate.slice(8, 10));
+    const comparison = [];
+
+    for (let day = 1; day <= latestDay; day += 1) {
+      const currentDate = dateForMonthDay(currentMonth, day);
+      const previousDate = day <= previousDayCount ? dateForMonthDay(previousMonth, day) : null;
+      for (let hour = 0; hour < HOUR_COUNT; hour += 1) {
+        comparison.push([getStoredVolume(currentDate, hour), getStoredVolume(previousDate, hour)]);
+      }
+    }
+
+    const bases = forecastDates.map(function (date) {
+      const baseDate = previousCalendarDate(date);
+      return {
+        date: baseDate,
+        volumes: Array.from({ length: HOUR_COUNT }, function (_, hour) {
+          return getStoredVolume(baseDate, hour);
+        })
+      };
+    });
+
+    return JSON.stringify({
+      currentMonth: currentMonth,
+      latestDate: latestDate,
+      forecastDates: forecastDates,
+      comparison: comparison,
+      bases: bases
+    });
+  }
+
+  function isForecastPreviewStale(preview) {
+    if (!preview || typeof preview.sourceSignature !== "string") {
+      return true;
+    }
+    if (findLatestFactDate(preview.currentMonth) !== preview.latestDate) {
+      return true;
+    }
+
+    const dates = preview.days.map(function (day) { return day.date; });
+    return buildForecastSourceSignature(preview.currentMonth, preview.latestDate, dates)
+      !== preview.sourceSignature;
   }
 
   function calculateForecastDay(date, analysis) {
@@ -773,7 +826,21 @@
     });
     elements.forecastResults.replaceChildren(fragment);
     elements.forecastResults.hidden = false;
-    elements.forecastResultMessage.classList.remove("has-errors");
+    updateForecastResultStatus(preview);
+  }
+
+  function updateForecastResultStatus(preview) {
+    if (!preview) {
+      return;
+    }
+
+    const isStale = isForecastPreviewStale(preview);
+    elements.forecastResultMessage.classList.toggle("has-errors", isStale);
+    if (isStale) {
+      elements.forecastResultMessage.textContent = "Данные изменились — рассчитайте прогноз снова.";
+      return;
+    }
+
     elements.forecastResultMessage.textContent = (preview.restored ? "Сохранённый прогноз на " : "Прогноз рассчитан и сохранён на ")
       + preview.days.map(function (day) { return formatDate(day.date); }).join(" и ") + ".";
   }
@@ -817,6 +884,7 @@
       currentMonth: currentMonth,
       latestDate: latestFactDate,
       calculatedAt: calculatedAt,
+      sourceSignature: saved[0].forecast.sourceSignature,
       restored: true,
       days: days
     };
@@ -833,6 +901,7 @@
 
     const analysis = analyzeForecastSource(currentMonth, latestDate);
     const dates = [addDaysToDateString(latestDate, 2), addDaysToDateString(latestDate, 3)];
+    const sourceSignature = buildForecastSourceSignature(currentMonth, latestDate, dates);
     const days = dates.map(function (date) {
       return calculateForecastDay(date, analysis);
     });
@@ -847,7 +916,8 @@
         volumes: day.values.slice(),
         sourceMonth: currentMonth,
         latestFactDate: latestDate,
-        calculatedAt: calculatedAt
+        calculatedAt: calculatedAt,
+        sourceSignature: sourceSignature
       };
     });
 
@@ -862,6 +932,7 @@
       currentMonth: currentMonth,
       latestDate: latestDate,
       calculatedAt: calculatedAt,
+      sourceSignature: sourceSignature,
       restored: false,
       days: days
     };
@@ -1195,7 +1266,8 @@
       volumes: forecast.volumes.slice(),
       sourceMonth: forecast.sourceMonth,
       latestFactDate: forecast.latestFactDate,
-      calculatedAt: forecast.calculatedAt
+      calculatedAt: forecast.calculatedAt,
+      sourceSignature: typeof forecast.sourceSignature === "string" ? forecast.sourceSignature : null
     };
   }
 
