@@ -148,24 +148,47 @@
         </div>
       </section>
 
-      <section class="panel clear-panel analytics-clear-panel" aria-labelledby="clear-date-title">
+      <section class="panel clear-panel analytics-clear-panel" aria-labelledby="clear-title">
         <div class="section-heading compact-heading">
           <div>
             <p class="step-label">Очистка</p>
-            <h2 id="clear-date-title">Очистить конкретную дату</h2>
+            <h2 id="clear-title">Очистить почасовые объёмы</h2>
           </div>
-          <p class="unit-note">Тарифы и другие даты сохранятся</p>
+          <p class="unit-note">Очистка требует подтверждения</p>
         </div>
 
-        <div class="clear-controls">
-          <label class="field-group" for="clear-date">
-            <span>Дата</span>
-            <input id="clear-date" type="date">
-            <small class="input-error" id="clear-date-error"></small>
-          </label>
-          <button class="danger-button" id="clear-date-button" type="button">Очистить дату</button>
+        <div class="clear-options">
+          <section class="clear-option" aria-labelledby="clear-date-title">
+            <h3 id="clear-date-title">Конкретная дата</h3>
+            <p>Очистятся только 24 часа указанной даты.</p>
+            <div class="clear-controls">
+              <label class="field-group" for="clear-date">
+                <span>Дата</span>
+                <input id="clear-date" type="date">
+                <small class="input-error" id="clear-date-error"></small>
+              </label>
+              <button class="danger-button" id="clear-date-button" type="button">Очистить дату</button>
+            </div>
+            <p class="clear-message" id="clear-date-message" role="status" aria-live="polite" hidden></p>
+          </section>
+
+          <section class="clear-option" aria-labelledby="clear-month-title">
+            <h3 id="clear-month-title">Целый месяц</h3>
+            <p>Тарифы, НДС и остальные месяцы сохранятся.</p>
+            <div class="clear-controls">
+              <label class="field-group" for="clear-month-scope">
+                <span>Месяц</span>
+                <select id="clear-month-scope">
+                  <option value="current">Выбранный месяц</option>
+                  <option value="previous">Предыдущий месяц</option>
+                </select>
+                <small class="input-error" id="clear-month-error"></small>
+              </label>
+              <button class="danger-button" id="clear-month-button" type="button">Очистить месяц</button>
+            </div>
+            <p class="clear-message" id="clear-month-message" role="status" aria-live="polite" hidden></p>
+          </section>
         </div>
-        <p class="clear-message" id="clear-date-message" role="status" aria-live="polite" hidden></p>
       </section>
 
       <section class="panel month-panel" aria-labelledby="month-title">

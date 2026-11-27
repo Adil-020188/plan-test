@@ -52,6 +52,10 @@
     clearDateError: document.querySelector("#clear-date-error"),
     clearDateButton: document.querySelector("#clear-date-button"),
     clearDateMessage: document.querySelector("#clear-date-message"),
+    clearMonthScope: document.querySelector("#clear-month-scope"),
+    clearMonthError: document.querySelector("#clear-month-error"),
+    clearMonthButton: document.querySelector("#clear-month-button"),
+    clearMonthMessage: document.querySelector("#clear-month-message"),
     tariffInputs: Array.from(document.querySelectorAll(".tariff-input")),
     tariffResults: Array.from(document.querySelectorAll(".tariff-results"))
   };
@@ -1068,6 +1072,7 @@
 
   function loadVisibleData() {
     updateTariffMonthLabels(elements.analyticsMonth.value);
+    updateClearMonthOptions(elements.analyticsMonth.value);
     clearTariffErrors();
 
     elements.tariffInputs.forEach(function (input) {
@@ -1158,6 +1163,101 @@
     state = nextState;
     setClearDateMessage(
       "Очищено: " + filledCount + " почасовых значений за " + formatDate(date) + ".",
+      false
+    );
+    renderMonthDays();
+  }
+
+  function setClearMonthMessage(message, hasErrors) {
+    elements.clearMonthMessage.hidden = !message;
+    elements.clearMonthMessage.textContent = message;
+    elements.clearMonthMessage.classList.toggle("has-errors", Boolean(hasErrors));
+  }
+
+  function updateClearMonthOptions(currentMonth) {
+    const currentOption = elements.clearMonthScope.querySelector('option[value="current"]');
+    const previousOption = elements.clearMonthScope.querySelector('option[value="previous"]');
+    const previousMonth = previousMonthValue(currentMonth);
+
+    currentOption.textContent = isMonthString(currentMonth)
+      ? "Выбранный: " + monthLabel(currentMonth)
+      : "Выбранный месяц";
+    previousOption.textContent = previousMonth
+      ? "Предыдущий: " + monthLabel(previousMonth)
+      : "Предыдущий месяц";
+    elements.clearMonthError.textContent = "";
+    elements.clearMonthScope.removeAttribute("aria-invalid");
+    setClearMonthMessage("", false);
+  }
+
+  function getClearMonth() {
+    const currentMonth = elements.analyticsMonth.value;
+    if (!isMonthString(currentMonth)) {
+      return null;
+    }
+
+    return elements.clearMonthScope.value === "previous"
+      ? previousMonthValue(currentMonth)
+      : currentMonth;
+  }
+
+  function countStoredVolumesForMonth(month) {
+    return Object.keys(state.records).reduce(function (total, date) {
+      return date.slice(0, 7) === month ? total + countStoredVolumes(date) : total;
+    }, 0);
+  }
+
+  function handleClearMonthScopeChange() {
+    elements.clearMonthError.textContent = "";
+    elements.clearMonthScope.removeAttribute("aria-invalid");
+    setClearMonthMessage("", false);
+  }
+
+  function handleClearMonth() {
+    const month = getClearMonth();
+    elements.clearMonthError.textContent = "";
+    elements.clearMonthScope.removeAttribute("aria-invalid");
+    setClearMonthMessage("", false);
+
+    if (!month) {
+      elements.clearMonthError.textContent = "Сначала выберите месяц в аналитике.";
+      elements.clearMonthScope.setAttribute("aria-invalid", "true");
+      elements.analyticsMonth.focus();
+      return;
+    }
+
+    const filledCount = countStoredVolumesForMonth(month);
+    if (filledCount === 0) {
+      setClearMonthMessage("За " + monthLabel(month) + " нет почасовых данных.", false);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Очистить " + filledCount + " почасовых значений за " + monthLabel(month)
+      + "? Тарифы, НДС и остальные месяцы останутся без изменений."
+    );
+    if (!confirmed) {
+      setClearMonthMessage("Очистка отменена. Данные не изменены.", false);
+      return;
+    }
+
+    const nextState = JSON.parse(JSON.stringify(state));
+    Object.keys(nextState.records).forEach(function (date) {
+      if (date.slice(0, 7) !== month) {
+        return;
+      }
+      nextState.records[date] = cleanRecord(nextState.records[date]);
+      nextState.records[date].volumes = Array(HOUR_COUNT).fill(null);
+    });
+
+    if (!saveState(nextState)) {
+      setClearMonthMessage("Не удалось сохранить очистку. Повторите попытку.", true);
+      return;
+    }
+
+    state = nextState;
+    setClearMonthMessage(
+      "Очищено: " + filledCount + " почасовых значений за " + monthLabel(month) + ".",
       false
     );
     renderMonthDays();
@@ -1775,6 +1875,8 @@
     elements.loadXlsx.addEventListener("click", handleXlsxLoad);
     elements.clearDate.addEventListener("input", handleClearDateInput);
     elements.clearDateButton.addEventListener("click", handleClearDate);
+    elements.clearMonthScope.addEventListener("change", handleClearMonthScopeChange);
+    elements.clearMonthButton.addEventListener("click", handleClearMonth);
     elements.tariffInputs.forEach(function (input) {
       input.addEventListener("focus", handleTariffFocus);
       input.addEventListener("input", handleTariffInput);

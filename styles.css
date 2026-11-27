@@ -29,7 +29,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -540,7 +541,8 @@ h2 {
   font-weight: 700;
 }
 
-input {
+input,
+select {
   width: 100%;
   min-height: 48px;
   padding: 10px 12px;
@@ -552,22 +554,26 @@ input {
   transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
 }
 
-input:hover:not(:disabled) {
+input:hover:not(:disabled),
+select:hover:not(:disabled) {
   border-color: #8d9aa6;
 }
 
-input:focus {
+input:focus,
+select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(23, 107, 91, 0.16);
 }
 
-input:disabled {
+input:disabled,
+select:disabled {
   cursor: not-allowed;
   color: #89939d;
   background: #f1f3f5;
 }
 
-input[aria-invalid="true"] {
+input[aria-invalid="true"],
+select[aria-invalid="true"] {
   border-color: var(--danger);
   background: var(--danger-soft);
 }
@@ -577,6 +583,31 @@ input[aria-invalid="true"] {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 16px;
+}
+
+.clear-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.clear-option {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f9fbfb;
+}
+
+.clear-option h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.clear-option > p:not(.clear-message) {
+  margin-bottom: 16px;
+  color: var(--muted);
+  font-size: 0.84rem;
 }
 
 .clear-controls {
@@ -876,6 +907,10 @@ tfoot .hour-column {
   .analytics-layout {
     grid-template-columns: 1fr;
   }
+
+  .clear-options {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {
@@ -956,6 +991,7 @@ tfoot .hour-column {
   }
 
   .import-controls,
+  .clear-options,
   .clear-controls,
   .import-summary,
   .tariff-grid,
