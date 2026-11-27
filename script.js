@@ -60,6 +60,11 @@
 
   function showView(viewName) {
     const safeView = viewName === "analytics" ? "analytics" : "main";
+
+    if (safeView === "main" && isMonthString(elements.analyticsMonth.value)) {
+      renderMonthSummary(elements.analyticsMonth.value);
+    }
+
     elements.views.forEach(function (view) {
       view.hidden = view.dataset.view !== safeView;
     });

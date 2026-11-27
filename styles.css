@@ -275,13 +275,17 @@ h2 {
 }
 
 .home-chart-scroll {
+  max-width: 100%;
+  min-width: 0;
   width: 100%;
   overflow-x: auto;
+  overscroll-behavior-inline: contain;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: #fbfcfd;
   outline: none;
   scrollbar-color: var(--accent) #e9eef1;
+  touch-action: pan-x pan-y;
 }
 
 .home-chart-scroll:focus-visible {
@@ -921,6 +925,11 @@ tfoot .hour-column {
   .home-chart {
     width: 1600px;
     min-width: 1600px;
+  }
+
+  .home-chart-section,
+  .home-chart-scroll {
+    min-width: 0;
   }
 
   .home-chart-scroll-hint {
