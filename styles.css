@@ -366,6 +366,10 @@ h2 {
   stroke: #2386d8;
 }
 
+.home-chart-series-planned {
+  stroke: #25b96b;
+}
+
 .home-chart-point {
   stroke: #fff;
   stroke-width: 1.5;
@@ -378,6 +382,10 @@ h2 {
 
 .home-chart-point-current {
   fill: #2386d8;
+}
+
+.home-chart-point-planned {
+  fill: #25b96b;
 }
 
 .home-chart-scroll-hint {
@@ -466,15 +474,6 @@ h2 {
   background: var(--danger-soft);
 }
 
-.forecast-table {
-  min-width: 980px;
-}
-
-.forecast-table td {
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-}
-
 .forecast-actions {
   display: flex;
   align-items: center;
@@ -522,13 +521,6 @@ h2 {
   font-size: 1rem;
 }
 
-.forecast-result-card-heading p {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
 .forecast-result-table {
   min-width: 0;
   table-layout: fixed;
@@ -536,23 +528,13 @@ h2 {
 
 .forecast-result-table th:first-child,
 .forecast-result-table td:first-child {
-  width: 28%;
+  width: 45%;
   text-align: left;
 }
 
 .forecast-result-table th:nth-child(2),
 .forecast-result-table td:nth-child(2) {
-  width: 18%;
-}
-
-.forecast-result-table th:nth-child(3),
-.forecast-result-table td:nth-child(3) {
-  width: 30%;
-}
-
-.forecast-result-table th:nth-child(4),
-.forecast-result-table td:nth-child(4) {
-  width: 24%;
+  width: 55%;
 }
 
 .forecast-result-table th,
@@ -1146,10 +1128,6 @@ tfoot .hour-column {
   .tariff-grid,
   .tariff-card {
     grid-template-columns: 1fr;
-  }
-
-  .forecast-table-scroll + .scroll-hint {
-    display: block;
   }
 
   .import-actions {

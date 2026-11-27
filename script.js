@@ -32,14 +32,10 @@
     monthDifferenceTotal: document.querySelector("#month-difference-total"),
     monthPercentTotal: document.querySelector("#month-percent-total"),
     monthCompleteDays: document.querySelector("#month-complete-days"),
-    forecastPreviousMonth: document.querySelector("#forecast-previous-month"),
-    forecastCurrentMonth: document.querySelector("#forecast-current-month"),
     forecastLastDate: document.querySelector("#forecast-last-date"),
     forecastFirstDate: document.querySelector("#forecast-first-date"),
     forecastSecondDate: document.querySelector("#forecast-second-date"),
-    forecastFilledHours: document.querySelector("#forecast-filled-hours"),
     forecastWarning: document.querySelector("#forecast-warning"),
-    forecastAnalysisBody: document.querySelector("#forecast-analysis-body"),
     calculateForecast: document.querySelector("#calculate-forecast"),
     forecastResultMessage: document.querySelector("#forecast-result-message"),
     forecastResults: document.querySelector("#forecast-results"),
@@ -223,10 +219,12 @@
       const previous = day <= previousDayCount
         ? summarizeDate(dateForMonthDay(previousMonth, day))
         : { total: 0, filled: 0, hasData: false };
+      const planned = summarizeForecastDate(dateForMonthDay(currentMonth, day));
       days.push({
         day: day,
         current: current.hasData ? current.total : null,
-        previous: previous.hasData ? previous.total : null
+        previous: previous.hasData ? previous.total : null,
+        planned: planned
       });
     }
 
@@ -237,7 +235,7 @@
     let maximum = 0;
 
     days.forEach(function (item) {
-      [item.previous, item.current].forEach(function (value) {
+      [item.previous, item.current, item.planned].forEach(function (value) {
         if (typeof value === "number" && Number.isFinite(value) && value > maximum) {
           maximum = value;
         }
@@ -253,12 +251,8 @@
   }
 
   function appendChartSeries(parent, days, field, maximum, plot) {
-    const seriesClass = field === "previous"
-      ? "home-chart-series home-chart-series-previous"
-      : "home-chart-series home-chart-series-current";
-    const pointClass = field === "previous"
-      ? "home-chart-point home-chart-point-previous"
-      : "home-chart-point home-chart-point-current";
+    const seriesClass = "home-chart-series home-chart-series-" + field;
+    const pointClass = "home-chart-point home-chart-point-" + field;
     let commands = [];
 
     function finishSegment() {
@@ -353,6 +347,7 @@
 
     appendChartSeries(fragment, days, "previous", maximum, plot);
     appendChartSeries(fragment, days, "current", maximum, plot);
+    appendChartSeries(fragment, days, "planned", maximum, plot);
 
     days.forEach(function (item, index) {
       const x = plotLeft + daySpacing * (index + 0.5);
@@ -362,6 +357,7 @@
     chart.appendChild(fragment);
     const previousCount = days.filter(function (item) { return item.previous !== null; }).length;
     const currentCount = days.filter(function (item) { return item.current !== null; }).length;
+    const plannedCount = days.filter(function (item) { return item.planned !== null; }).length;
     elements.homeChartDescription.textContent = "График суточных объёмов за "
       + monthLabel(currentMonth)
       + ": от 0 до "
@@ -370,6 +366,8 @@
       + previousCount
       + ", текущего месяца: "
       + currentCount
+      + ", с планом: "
+      + plannedCount
       + ".";
   }
 
@@ -530,6 +528,31 @@
     return isValidVolume(value) ? value : null;
   }
 
+  function getStoredForecast(date) {
+    if (!date || !state.forecasts || !state.forecasts[date]) {
+      return null;
+    }
+
+    return state.forecasts[date];
+  }
+
+  function summarizeForecastDate(date) {
+    const forecast = getStoredForecast(date);
+    if (!forecast || !Array.isArray(forecast.volumes) || forecast.volumes.length !== HOUR_COUNT) {
+      return null;
+    }
+
+    let total = 0;
+    for (let hour = 0; hour < HOUR_COUNT; hour += 1) {
+      if (!isValidVolume(forecast.volumes[hour])) {
+        return null;
+      }
+      total += forecast.volumes[hour];
+    }
+
+    return Number.isFinite(total) ? total : null;
+  }
+
   function addDaysToDateString(value, dayCount) {
     const date = parseLocalDate(value);
     if (!date) {
@@ -568,9 +591,6 @@
         currentAllSum: 0
       };
     });
-    let previousFilled = 0;
-    let currentFilled = 0;
-
     for (let day = 1; day <= latestDay; day += 1) {
       const currentDate = dateForMonthDay(currentMonth, day);
       const previousDate = day <= previousDayCount ? dateForMonthDay(previousMonth, day) : null;
@@ -580,12 +600,8 @@
         const previous = getStoredVolume(previousDate, hour);
 
         if (current !== null) {
-          currentFilled += 1;
           hours[hour].currentCount += 1;
           hours[hour].currentAllSum += current;
-        }
-        if (previous !== null) {
-          previousFilled += 1;
         }
         if (current !== null && previous !== null) {
           hours[hour].pairCount += 1;
@@ -595,86 +611,31 @@
       }
     }
 
-    return {
-      previousFilled: previousFilled,
-      currentFilled: currentFilled,
-      hours: hours
-    };
+    return { hours: hours };
   }
 
-  function hourInterval(hour) {
-    const nextHour = (hour + 1) % HOUR_COUNT;
-    return String(hour).padStart(2, "0") + ":00–" + String(nextHour).padStart(2, "0") + ":00";
-  }
-
-  function appendForecastCell(row, value, className) {
-    const cell = document.createElement("td");
-    cell.textContent = value;
-    if (className) {
-      cell.className = className;
-    }
-    row.appendChild(cell);
-    return cell;
-  }
-
-  function renderForecastRows(analysis) {
-    const fragment = document.createDocumentFragment();
-    const empty = !analysis;
-
-    for (let hour = 0; hour < HOUR_COUNT; hour += 1) {
-      const row = document.createElement("tr");
-      const hourCell = document.createElement("th");
-      const source = empty ? null : analysis.hours[hour];
-      const hasPairs = source && source.pairCount > 0;
-      const difference = hasPairs ? source.currentSum - source.previousSum : null;
-      const coefficient = hasPairs && source.previousSum > 0
-        ? source.currentSum / source.previousSum
-        : null;
-      const percent = coefficient === null ? null : (coefficient - 1) * 100;
-
-      hourCell.className = "hour-column";
-      hourCell.scope = "row";
-      hourCell.textContent = hourInterval(hour);
-      row.appendChild(hourCell);
-      appendForecastCell(row, source ? formatNumber(source.pairCount, 0) : "—");
-      appendForecastCell(row, hasPairs ? formatNumber(source.previousSum, DISPLAY_VOLUME_DECIMALS) : "—");
-      appendForecastCell(row, hasPairs ? formatNumber(source.currentSum, DISPLAY_VOLUME_DECIMALS) : "—");
-      const differenceCell = appendForecastCell(
-        row,
-        difference === null ? "—" : formatSignedNumber(difference, DISPLAY_VOLUME_DECIMALS)
-      );
-      const percentCell = appendForecastCell(
-        row,
-        percent === null ? "—" : formatSignedNumber(percent, 2) + "%"
-      );
-      appendForecastCell(row, coefficient === null ? "—" : formatNumber(coefficient, 4));
-      setDifferenceStyle(differenceCell, difference);
-      setDifferenceStyle(percentCell, percent);
-      fragment.appendChild(row);
-    }
-
-    elements.forecastAnalysisBody.replaceChildren(fragment);
+  function hourLabel(hour) {
+    return String(hour).padStart(2, "0") + ":00";
   }
 
   function renderForecastAnalysis(currentMonth) {
-    const previousMonth = previousMonthValue(currentMonth);
-    if (forecastPreview && forecastPreview.currentMonth !== currentMonth) {
-      forecastPreview = null;
-      clearForecastResult("Нажмите «Рассчитать прогноз», чтобы получить почасовые объёмы на двое суток.", false);
+    if (!forecastPreview || forecastPreview.currentMonth !== currentMonth) {
+      forecastPreview = getSavedForecastPreview(currentMonth);
+      if (forecastPreview) {
+        renderForecastResult(forecastPreview);
+      } else {
+        clearForecastResult("Нажмите «Рассчитать прогноз», чтобы получить почасовые объёмы на двое суток.", false);
+      }
     }
-    elements.forecastPreviousMonth.textContent = monthLabel(previousMonth);
-    elements.forecastCurrentMonth.textContent = monthLabel(currentMonth);
     elements.forecastLastDate.textContent = "—";
     elements.forecastFirstDate.textContent = "—";
     elements.forecastSecondDate.textContent = "—";
-    elements.forecastFilledHours.textContent = "—";
     elements.forecastWarning.classList.remove("has-errors");
     elements.calculateForecast.disabled = true;
 
     if (!isMonthString(currentMonth)) {
       elements.forecastWarning.textContent = "Выберите текущий месяц для анализа.";
       elements.forecastWarning.classList.add("has-errors");
-      renderForecastRows(null);
       return;
     }
 
@@ -682,48 +643,17 @@
     if (!latestDate) {
       elements.forecastWarning.textContent = "В текущем месяце нет сохранённых почасовых объёмов.";
       elements.forecastWarning.classList.add("has-errors");
-      renderForecastRows(null);
       return;
     }
 
-    const analysis = analyzeForecastSource(currentMonth, latestDate);
     const firstForecastDate = addDaysToDateString(latestDate, 2);
     const secondForecastDate = addDaysToDateString(latestDate, 3);
-    const hoursWithoutPairs = [];
-    const hoursWithoutCurrentData = [];
-
-    analysis.hours.forEach(function (hour, index) {
-      if (hour.pairCount === 0) {
-        hoursWithoutPairs.push(hourInterval(index));
-      }
-      if (hour.currentCount === 0) {
-        hoursWithoutCurrentData.push(hourInterval(index));
-      }
-    });
 
     elements.forecastLastDate.textContent = formatDate(latestDate);
     elements.forecastFirstDate.textContent = formatDate(firstForecastDate);
     elements.forecastSecondDate.textContent = formatDate(secondForecastDate);
-    elements.forecastFilledHours.textContent = "Текущий: " + analysis.currentFilled
-      + " · предыдущий: " + analysis.previousFilled;
-
-    const warnings = [];
-    if (hoursWithoutPairs.length > 0) {
-      warnings.push("нет сопоставимых пар: " + hoursWithoutPairs.join(", "));
-    }
-    if (hoursWithoutCurrentData.length > 0) {
-      warnings.push("нет данных текущего месяца: " + hoursWithoutCurrentData.join(", "));
-    }
-
-    if (warnings.length > 0) {
-      elements.forecastWarning.textContent = "Есть пропуски — " + warnings.join("; ") + ".";
-      elements.forecastWarning.classList.add("has-errors");
-    } else {
-      elements.forecastWarning.textContent = "Почасовой анализ выполнен. Данные есть для всех 24 часов.";
-    }
-
+    elements.forecastWarning.textContent = "Пустые часы будут рассчитаны как 0 кВт*ч.";
     elements.calculateForecast.disabled = false;
-    renderForecastRows(analysis);
   }
 
   function previousCalendarDate(value) {
@@ -742,8 +672,6 @@
   function calculateForecastDay(date, analysis) {
     const baseDate = previousCalendarDate(date);
     const values = [];
-    const details = [];
-    const missingHours = [];
 
     for (let hour = 0; hour < HOUR_COUNT; hour += 1) {
       const source = analysis.hours[hour];
@@ -754,46 +682,25 @@
       const average = source.currentCount > 0
         ? source.currentAllSum / source.currentCount
         : null;
-      let value = null;
-      let method = null;
+      let value = 0;
 
       if (base !== null && coefficient !== null) {
         value = base * coefficient;
-        method = "coefficient";
       } else if (average !== null) {
         value = average;
-        method = "average";
       }
 
       if (!isValidVolume(value)) {
-        missingHours.push(hour);
-        values.push(null);
-        details.push(null);
-        continue;
+        value = 0;
       }
 
       const rounded = Number(value.toFixed(2));
-      if (!isValidVolume(rounded)) {
-        missingHours.push(hour);
-        values.push(null);
-        details.push(null);
-        continue;
-      }
-      values.push(rounded);
-      details.push({
-        base: base,
-        coefficient: coefficient,
-        average: average,
-        method: method
-      });
+      values.push(isValidVolume(rounded) ? rounded : 0);
     }
 
     return {
       date: date,
-      baseDate: baseDate,
-      values: values,
-      details: details,
-      missingHours: missingHours
+      values: values
     };
   }
 
@@ -808,7 +715,6 @@
     const card = document.createElement("article");
     const heading = document.createElement("div");
     const title = document.createElement("h3");
-    const baseDate = document.createElement("p");
     const table = document.createElement("table");
     const head = document.createElement("thead");
     const headRow = document.createElement("tr");
@@ -820,10 +726,9 @@
     card.className = "forecast-result-card";
     heading.className = "forecast-result-card-heading";
     title.textContent = formatDate(day.date);
-    baseDate.textContent = "Базовая дата: " + formatDate(day.baseDate);
     table.className = "forecast-result-table";
 
-    ["Час", "База, кВт*ч", "Расчёт", "Прогноз, кВт*ч"].forEach(function (heading) {
+    ["Час", "Прогнозный объём, кВт*ч"].forEach(function (heading) {
       const cell = document.createElement("th");
       cell.scope = "col";
       cell.textContent = heading;
@@ -833,21 +738,12 @@
     day.values.forEach(function (value, hour) {
       const row = document.createElement("tr");
       const hourCell = document.createElement("th");
-      const baseCell = document.createElement("td");
-      const calculationCell = document.createElement("td");
       const valueCell = document.createElement("td");
-      const detail = day.details[hour];
       hourCell.scope = "row";
-      hourCell.textContent = hourInterval(hour);
-      baseCell.textContent = detail.base === null ? "—" : formatNumber(detail.base, 2);
-      calculationCell.textContent = detail.method === "coefficient"
-        ? formatNumber(detail.base, 2) + " × " + formatNumber(detail.coefficient, 4)
-        : "Среднее: " + formatNumber(detail.average, 2);
-      valueCell.textContent = formatNumber(value, 2);
+      hourCell.textContent = hourLabel(hour);
+      valueCell.textContent = formatNumber(value, 2) + " кВт*ч";
       total += value;
       row.appendChild(hourCell);
-      row.appendChild(baseCell);
-      row.appendChild(calculationCell);
       row.appendChild(valueCell);
       body.appendChild(row);
     });
@@ -855,7 +751,6 @@
     const totalLabel = document.createElement("th");
     const totalValue = document.createElement("td");
     totalLabel.scope = "row";
-    totalLabel.colSpan = 3;
     totalLabel.textContent = "Итого за сутки";
     totalValue.textContent = formatNumber(total, 2) + " кВт*ч";
     footRow.appendChild(totalLabel);
@@ -866,7 +761,6 @@
     table.appendChild(body);
     table.appendChild(foot);
     heading.appendChild(title);
-    heading.appendChild(baseDate);
     card.appendChild(heading);
     card.appendChild(table);
     return card;
@@ -880,8 +774,52 @@
     elements.forecastResults.replaceChildren(fragment);
     elements.forecastResults.hidden = false;
     elements.forecastResultMessage.classList.remove("has-errors");
-    elements.forecastResultMessage.textContent = "Прогноз рассчитан на "
+    elements.forecastResultMessage.textContent = (preview.restored ? "Сохранённый прогноз на " : "Прогноз рассчитан и сохранён на ")
       + preview.days.map(function (day) { return formatDate(day.date); }).join(" и ") + ".";
+  }
+
+  function getSavedForecastPreview(currentMonth) {
+    if (!isMonthString(currentMonth) || !state.forecasts) {
+      return null;
+    }
+
+    const saved = Object.keys(state.forecasts).map(function (date) {
+      return { date: date, forecast: state.forecasts[date] };
+    }).filter(function (item) {
+      return item.forecast.sourceMonth === currentMonth;
+    }).sort(function (left, right) {
+      return right.forecast.calculatedAt.localeCompare(left.forecast.calculatedAt);
+    });
+
+    if (saved.length === 0) {
+      return null;
+    }
+
+    const calculatedAt = saved[0].forecast.calculatedAt;
+    const latestFactDate = saved[0].forecast.latestFactDate;
+    const days = saved.filter(function (item) {
+      return item.forecast.calculatedAt === calculatedAt
+        && item.forecast.latestFactDate === latestFactDate;
+    }).sort(function (left, right) {
+      return left.date.localeCompare(right.date);
+    }).slice(0, 2).map(function (item) {
+      return {
+        date: item.date,
+        values: item.forecast.volumes.slice()
+      };
+    });
+
+    if (days.length !== 2) {
+      return null;
+    }
+
+    return {
+      currentMonth: currentMonth,
+      latestDate: latestFactDate,
+      calculatedAt: calculatedAt,
+      restored: true,
+      days: days
+    };
   }
 
   function handleForecastCalculation() {
@@ -898,29 +836,37 @@
     const days = dates.map(function (date) {
       return calculateForecastDay(date, analysis);
     });
-    const missing = new Set();
+
+    const calculatedAt = new Date().toISOString();
+    const nextState = JSON.parse(JSON.stringify(state));
+    if (!nextState.forecasts || typeof nextState.forecasts !== "object") {
+      nextState.forecasts = {};
+    }
     days.forEach(function (day) {
-      day.missingHours.forEach(function (hour) {
-        missing.add(hour);
-      });
+      nextState.forecasts[day.date] = {
+        volumes: day.values.slice(),
+        sourceMonth: currentMonth,
+        latestFactDate: latestDate,
+        calculatedAt: calculatedAt
+      };
     });
 
-    if (missing.size > 0) {
+    if (!saveState(nextState)) {
       forecastPreview = null;
-      const labels = Array.from(missing).sort(function (a, b) { return a - b; }).map(hourInterval);
-      clearForecastResult(
-        "Прогноз не сформирован. Недостаточно данных для часов: " + labels.join(", ") + ".",
-        true
-      );
+      clearForecastResult("Прогноз рассчитан, но не удалось сохранить его в браузере.", true);
       return;
     }
 
+    state = nextState;
     forecastPreview = {
       currentMonth: currentMonth,
       latestDate: latestDate,
+      calculatedAt: calculatedAt,
+      restored: false,
       days: days
     };
     renderForecastResult(forecastPreview);
+    renderHomeChartFrame(elements.mainMonth.value);
   }
 
   function createMonthVolumeCell(recordDate, currentDate, previousDate, hour, time, period) {
@@ -1224,6 +1170,35 @@
     return clean;
   }
 
+  function cleanForecast(date, forecast) {
+    if (!isDateString(date) || !forecast || typeof forecast !== "object") {
+      return null;
+    }
+    if (
+      !Array.isArray(forecast.volumes)
+      || forecast.volumes.length !== HOUR_COUNT
+      || !forecast.volumes.every(isValidVolume)
+    ) {
+      return null;
+    }
+
+    if (
+      !isMonthString(forecast.sourceMonth)
+      || !isDateString(forecast.latestFactDate)
+      || typeof forecast.calculatedAt !== "string"
+      || !Number.isFinite(Date.parse(forecast.calculatedAt))
+    ) {
+      return null;
+    }
+
+    return {
+      volumes: forecast.volumes.slice(),
+      sourceMonth: forecast.sourceMonth,
+      latestFactDate: forecast.latestFactDate,
+      calculatedAt: forecast.calculatedAt
+    };
+  }
+
   function migrateLegacyMonthlyTariffs(target) {
     const selectedDates = target.selected
       ? [target.selected.previous, target.selected.current]
@@ -1256,6 +1231,7 @@
       selected: null,
       records: {},
       monthlyTariffs: {},
+      forecasts: {},
       view: "main",
       analyticsMonth: null
     };
@@ -1293,6 +1269,15 @@
         Object.keys(saved.monthlyTariffs).forEach(function (month) {
           if (isMonthString(month)) {
             initial.monthlyTariffs[month] = cleanMonthlyTariff(saved.monthlyTariffs[month]);
+          }
+        });
+      }
+
+      if (saved.forecasts && typeof saved.forecasts === "object") {
+        Object.keys(saved.forecasts).forEach(function (date) {
+          const forecast = cleanForecast(date, saved.forecasts[date]);
+          if (forecast) {
+            initial.forecasts[date] = forecast;
           }
         });
       }
