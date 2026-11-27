@@ -69,8 +69,15 @@
 
       <section class="home-chart-section" aria-labelledby="home-chart-title">
         <div class="home-chart-heading">
-          <h3 id="home-chart-title">Суточные объёмы</h3>
-          <p>Фактические данные выбранного и предыдущего месяцев</p>
+          <div>
+            <h3 id="home-chart-title">Суточные объёмы</h3>
+            <p>Фактические данные выбранного и предыдущего месяцев</p>
+          </div>
+          <ul class="home-chart-legend" aria-label="Обозначения графика">
+            <li><span class="home-chart-legend-line legend-previous" aria-hidden="true"></span>Факт предыдущего месяца</li>
+            <li><span class="home-chart-legend-line legend-current" aria-hidden="true"></span>Факт текущего месяца</li>
+            <li><span class="home-chart-legend-line legend-planned" aria-hidden="true"></span>Плановый объём</li>
+          </ul>
         </div>
         <div class="home-chart-scroll" tabindex="0" aria-label="График суточных объёмов, прокрутка по горизонтали">
           <svg id="home-volume-chart" class="home-chart" role="img" aria-labelledby="home-chart-title home-chart-description" viewBox="0 0 1400 430">

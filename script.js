@@ -230,6 +230,46 @@
     return String(day).padStart(2, "0") + "." + monthNumber;
   }
 
+  function appendChartSeries(parent, days, field, maximum, plot) {
+    const seriesClass = field === "previous"
+      ? "home-chart-series home-chart-series-previous"
+      : "home-chart-series home-chart-series-current";
+    const pointClass = field === "previous"
+      ? "home-chart-point home-chart-point-previous"
+      : "home-chart-point home-chart-point-current";
+    let commands = [];
+
+    function finishSegment() {
+      if (commands.length > 1) {
+        parent.appendChild(createSvgElement("path", {
+          d: commands.join(" "),
+          class: seriesClass
+        }));
+      }
+      commands = [];
+    }
+
+    days.forEach(function (item, index) {
+      const value = item[field];
+      if (typeof value !== "number" || !Number.isFinite(value)) {
+        finishSegment();
+        return;
+      }
+
+      const x = plot.left + plot.daySpacing * (index + 0.5);
+      const y = plot.bottom - value / maximum * (plot.bottom - plot.top);
+      commands.push((commands.length === 0 ? "M " : "L ") + x + " " + y);
+      parent.appendChild(createSvgElement("circle", {
+        cx: x,
+        cy: y,
+        r: 3.5,
+        class: pointClass
+      }));
+    });
+
+    finishSegment();
+  }
+
   function renderHomeChartFrame(currentMonth) {
     const chart = elements.homeVolumeChart;
     const chartWidth = 1400;
@@ -250,6 +290,12 @@
     const maximum = getChartMaximum(days);
     const plotWidth = plotRight - plotLeft;
     const daySpacing = plotWidth / days.length;
+    const plot = {
+      left: plotLeft,
+      top: plotTop,
+      bottom: plotBottom,
+      daySpacing: daySpacing
+    };
     const fragment = document.createDocumentFragment();
 
     appendChartText(fragment, "Объём, кВт*ч", 20, 28, "home-chart-unit-label");
@@ -283,17 +329,26 @@
       class: "home-chart-axis-line"
     }));
 
+    appendChartSeries(fragment, days, "previous", maximum, plot);
+    appendChartSeries(fragment, days, "current", maximum, plot);
+
     days.forEach(function (item, index) {
       const x = plotLeft + daySpacing * (index + 0.5);
       appendChartText(fragment, formatChartDate(currentMonth, item.day), x, 382, "home-chart-date-label");
     });
 
     chart.appendChild(fragment);
-    elements.homeChartDescription.textContent = "Шкала суточных объёмов за "
+    const previousCount = days.filter(function (item) { return item.previous !== null; }).length;
+    const currentCount = days.filter(function (item) { return item.current !== null; }).length;
+    elements.homeChartDescription.textContent = "График суточных объёмов за "
       + monthLabel(currentMonth)
       + ": от 0 до "
       + formatNumber(maximum, 2)
-      + " кВт*ч.";
+      + " кВт*ч. Дней с фактом предыдущего месяца: "
+      + previousCount
+      + ", текущего месяца: "
+      + currentCount
+      + ".";
   }
 
   function renderHomeSummary(currentMonth, summary) {

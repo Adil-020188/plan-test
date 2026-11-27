@@ -226,7 +226,7 @@ h2 {
 }
 
 .home-chart-heading h3 {
-  margin: 0;
+  margin: 0 0 4px;
   font-size: 1.08rem;
 }
 
@@ -234,6 +234,44 @@ h2 {
   margin: 0;
   color: var(--muted);
   font-size: 0.84rem;
+}
+
+.home-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 16px;
+  margin: 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  list-style: none;
+}
+
+.home-chart-legend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.home-chart-legend-line {
+  width: 24px;
+  height: 3px;
+  border-radius: 999px;
+  background: #9aa6b1;
+}
+
+.legend-previous {
+  background: #e87924;
+}
+
+.legend-current {
+  background: #2386d8;
+}
+
+.legend-planned {
+  background: #25b96b;
 }
 
 .home-chart-scroll {
@@ -290,6 +328,36 @@ h2 {
 
 .home-chart-unit-label {
   font-size: 12px;
+}
+
+.home-chart-series {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.home-chart-series-previous {
+  stroke: #e87924;
+}
+
+.home-chart-series-current {
+  stroke: #2386d8;
+}
+
+.home-chart-point {
+  stroke: #fff;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.home-chart-point-previous {
+  fill: #e87924;
+}
+
+.home-chart-point-current {
+  fill: #2386d8;
 }
 
 .home-chart-scroll-hint {
@@ -844,6 +912,10 @@ tfoot .hour-column {
     align-items: flex-start;
     flex-direction: column;
     gap: 6px;
+  }
+
+  .home-chart-legend {
+    justify-content: flex-start;
   }
 
   .home-chart {
