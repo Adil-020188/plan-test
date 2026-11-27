@@ -430,6 +430,7 @@
     const currentMonth = elements.analyticsMonth.value;
     elements.monthDayList.replaceChildren();
     renderMonthSummary(currentMonth);
+    updateTariffMonthLabels(currentMonth);
 
     if (!isMonthString(currentMonth)) {
       return;
@@ -702,15 +703,13 @@
     });
   }
 
-  function updateDateLabels() {
-    const previousLabel = formatDate(elements.previousDate.value);
-    const currentLabel = formatDate(elements.currentDate.value);
-    elements.previousTariffDate.textContent = previousLabel;
-    elements.currentTariffDate.textContent = currentLabel;
+  function updateTariffMonthLabels(currentMonth) {
+    elements.previousTariffDate.textContent = monthLabel(previousMonthValue(currentMonth));
+    elements.currentTariffDate.textContent = monthLabel(currentMonth);
   }
 
   function loadVisibleData() {
-    updateDateLabels();
+    updateTariffMonthLabels(elements.analyticsMonth.value);
     clearTariffErrors();
 
     if (!pairIsValid) {

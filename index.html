@@ -97,85 +97,77 @@
       </div>
     </section>
 
-    <section class="panel month-panel" data-view="analytics" aria-labelledby="month-title" hidden>
-      <div class="section-heading">
-        <div>
-          <p class="step-label">Месяц</p>
-          <h2 id="month-title">Аналитика месяца</h2>
-        </div>
-        <label class="field-group month-picker" for="analytics-month">
-          <span>Текущий месяц</span>
-          <input id="analytics-month" type="month">
-        </label>
-      </div>
-
-      <p class="unit-note month-note">Нажмите на день, чтобы открыть или скрыть 24 почасовых значения.</p>
-      <dl class="month-summary" aria-label="Итоги выбранного месяца">
-        <div>
-          <dt>Предыдущий месяц</dt>
-          <dd><span id="month-previous-total">0</span> кВт*ч</dd>
-        </div>
-        <div>
-          <dt>Текущий месяц</dt>
-          <dd><span id="month-current-total">0</span> кВт*ч</dd>
-        </div>
-        <div>
-          <dt>Разница</dt>
-          <dd><span id="month-difference-total">0</span> кВт*ч</dd>
-        </div>
-        <div>
-          <dt>Изменение</dt>
-          <dd id="month-percent-total">—</dd>
-        </div>
-        <div>
-          <dt>Полные дни</dt>
-          <dd id="month-complete-days">0</dd>
-        </div>
-      </dl>
-      <div class="month-day-list" id="month-day-list" aria-live="polite"></div>
-    </section>
-
-    <section class="panel tariff-panel" data-view="main" aria-labelledby="tariffs-title">
-      <div class="section-heading compact-heading">
-        <div>
-          <p class="step-label">Шаг 3</p>
-          <h2 id="tariffs-title">Укажите тарифы</h2>
-        </div>
-        <p class="unit-note">Целые тенге</p>
-      </div>
-
-      <div class="tariff-grid">
-        <fieldset class="tariff-card" id="previous-tariffs">
-          <legend>Предыдущий месяц</legend>
-          <p class="tariff-date" id="previous-tariff-date">—</p>
-          <label class="field-group" for="previous-tariff-without-vat">
-            <span>Без НДС</span>
-            <input id="previous-tariff-without-vat" class="tariff-input" type="text" inputmode="numeric" autocomplete="off" placeholder="0 ₸" data-period="previous" data-tariff="withoutVat">
-            <small class="input-error" id="previous-tariff-without-vat-error"></small>
+    <div class="analytics-layout" data-view="analytics" hidden>
+      <section class="panel month-panel" aria-labelledby="month-title">
+        <div class="section-heading">
+          <div>
+            <p class="step-label">Месяц</p>
+            <h2 id="month-title">Аналитика месяца</h2>
+          </div>
+          <label class="field-group month-picker" for="analytics-month">
+            <span>Текущий месяц</span>
+            <input id="analytics-month" type="month">
           </label>
-          <label class="field-group" for="previous-tariff-with-vat">
-            <span>С НДС</span>
-            <input id="previous-tariff-with-vat" class="tariff-input" type="text" inputmode="numeric" autocomplete="off" placeholder="0 ₸" data-period="previous" data-tariff="withVat">
-            <small class="input-error" id="previous-tariff-with-vat-error"></small>
-          </label>
-        </fieldset>
+        </div>
 
-        <fieldset class="tariff-card" id="current-tariffs">
-          <legend>Текущий месяц</legend>
-          <p class="tariff-date" id="current-tariff-date">—</p>
-          <label class="field-group" for="current-tariff-without-vat">
-            <span>Без НДС</span>
-            <input id="current-tariff-without-vat" class="tariff-input" type="text" inputmode="numeric" autocomplete="off" placeholder="0 ₸" data-period="current" data-tariff="withoutVat">
-            <small class="input-error" id="current-tariff-without-vat-error"></small>
-          </label>
-          <label class="field-group" for="current-tariff-with-vat">
-            <span>С НДС</span>
-            <input id="current-tariff-with-vat" class="tariff-input" type="text" inputmode="numeric" autocomplete="off" placeholder="0 ₸" data-period="current" data-tariff="withVat">
-            <small class="input-error" id="current-tariff-with-vat-error"></small>
-          </label>
-        </fieldset>
-      </div>
-    </section>
+        <p class="unit-note month-note">Нажмите на день, чтобы открыть или скрыть 24 почасовых значения.</p>
+        <dl class="month-summary" aria-label="Итоги выбранного месяца">
+          <div>
+            <dt>Предыдущий месяц</dt>
+            <dd><span id="month-previous-total">0</span> кВт*ч</dd>
+          </div>
+          <div>
+            <dt>Текущий месяц</dt>
+            <dd><span id="month-current-total">0</span> кВт*ч</dd>
+          </div>
+          <div>
+            <dt>Разница</dt>
+            <dd><span id="month-difference-total">0</span> кВт*ч</dd>
+          </div>
+          <div>
+            <dt>Изменение</dt>
+            <dd id="month-percent-total">—</dd>
+          </div>
+          <div>
+            <dt>Полные дни</dt>
+            <dd id="month-complete-days">0</dd>
+          </div>
+        </dl>
+        <div class="month-day-list" id="month-day-list" aria-live="polite"></div>
+      </section>
+
+      <section class="panel tariff-panel" aria-labelledby="tariffs-title">
+        <div class="section-heading compact-heading">
+          <div>
+            <p class="step-label">Тариф и НДС</p>
+            <h2 id="tariffs-title">Тарифы месяцев</h2>
+          </div>
+          <p class="unit-note">Без НДС</p>
+        </div>
+
+        <div class="tariff-grid">
+          <fieldset class="tariff-card" id="previous-tariffs">
+            <legend>Предыдущий месяц</legend>
+            <p class="tariff-date" id="previous-tariff-date">—</p>
+            <label class="field-group" for="previous-tariff-without-vat">
+              <span>Тариф без НДС</span>
+              <input id="previous-tariff-without-vat" class="tariff-input" type="text" inputmode="numeric" autocomplete="off" placeholder="0 ₸" data-period="previous" data-tariff="withoutVat">
+              <small class="input-error" id="previous-tariff-without-vat-error"></small>
+            </label>
+          </fieldset>
+
+          <fieldset class="tariff-card" id="current-tariffs">
+            <legend>Текущий месяц</legend>
+            <p class="tariff-date" id="current-tariff-date">—</p>
+            <label class="field-group" for="current-tariff-without-vat">
+              <span>Тариф без НДС</span>
+              <input id="current-tariff-without-vat" class="tariff-input" type="text" inputmode="numeric" autocomplete="off" placeholder="0 ₸" data-period="current" data-tariff="withoutVat">
+              <small class="input-error" id="current-tariff-without-vat-error"></small>
+            </label>
+          </fieldset>
+        </div>
+      </section>
+    </div>
   </main>
 
   <script src="script.js"></script>
